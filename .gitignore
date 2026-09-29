@@ -1,0 +1,18 @@
+# Secrets and local config. Never commit these.
+.env
+.env.*
+*.key
+*.pem
+secrets*
+equity_config.json
+.clasprc.json
+.clasp.json
+
+# Pool CSVs contain MT5 passwords
+*.csv
+
+# Tooling
+node_modules/
+__pycache__/
+*.pyc
+.DS_Store
