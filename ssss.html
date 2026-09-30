@@ -58,7 +58,6 @@ main{flex:1;display:flex;min-height:0}
 </main>
 <div id="log" role="status">Enter your client ID and script ID, then sign in.</div>
 
-<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
@@ -66,18 +65,27 @@ main{flex:1;display:flex;min-height:0}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
 <script>
+window.onerror = m => { const l = document.getElementById('log'); if (l) { l.textContent = 'Error: ' + m; l.className = 'err'; } };
 const $ = id => document.getElementById(id);
 const API = 'https://script.googleapis.com/v1/projects/';
-let token = null, tokenClient = null, files = {}, cur = null;
+let token = null, files = {}, cur = null;
 // files: { name: { type:'SERVER_JS'|'HTML'|'JSON', source } }
 
-const cm = CodeMirror.fromTextArea($('ta'), {lineNumbers:true, lineWrapping:false, indentUnit:2, tabSize:2, indentWithTabs:false});
-cm.on('change', () => { if (cur && files[cur]) files[cur].source = cm.getValue(); });
+let cm;
+try {
+  cm = CodeMirror.fromTextArea($('ta'), {lineNumbers:true, lineWrapping:false, indentUnit:2, tabSize:2, indentWithTabs:false});
+  cm.on('change', () => { if (cur && files[cur]) files[cur].source = cm.getValue(); });
+} catch (e) {
+  const t = $('ta');
+  t.style.cssText = 'flex:1;width:100%;font:13px/1.5 monospace;padding:8px;border:0;background:var(--panel);color:var(--ink)';
+  t.addEventListener('input', () => { if (cur && files[cur]) files[cur].source = t.value; });
+  cm = {getValue:()=>t.value, setValue:v=>{t.value=v;}, setOption(){}, refresh(){}};
+}
 
 function log(m, err){ const l=$('log'); l.textContent=m; l.className=err?'err':''; }
 function saved(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
 function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
-const CLIENT_ID = '523526427729-1hhg0ne21ki0l568ftupkehl7i5uo2ub.apps.googleusercontent.com';
+const CLIENT_ID = '523526427729-oqttg4mqu0ut5q59boctmtuj67hr73b9.apps.googleusercontent.com';
 const SCRIPT_ID = '1tIJsG86ZadAcIsnL_--cahrW46hhDqWQXCWaZhS9jfSnlFKflaCQcGa2';
 $('cid').value = CLIENT_ID; $('sid').value = SCRIPT_ID;
 
@@ -146,24 +154,33 @@ $('add').onclick = () => {
   files[t.name] = {type:t.type, source:''}; open(t.name);
 };
 
-// ---- Auth ----
+// ---- Auth (redirect flow, works where popups fail) ----
+const SCOPE = 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments';
+const REDIRECT = location.origin + location.pathname;
+function onSignedIn(t){
+  token = t; $('pull').disabled = $('push').disabled = $('deploy').disabled = false;
+  $('signin').textContent = 'Signed in'; log('Signed in. Load the project, then upload your files.');
+}
 $('signin').onclick = () => {
   const cid = $('cid').value.trim();
-  if (!cid) return log('Paste your OAuth client ID first.',1);
-  if (!window.google || !google.accounts) return log('Google sign-in is still loading. Try again in a moment.',1);
-  save('sd_cid', cid);
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: cid,
-    scope: 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments',
-    error_callback: e => log('Sign-in problem: '+(e.type||'unknown')+'. Allow popups for this site and try again.',1),
-    callback: r => {
-      if (r.error) return log('Sign-in failed: '+r.error,1);
-      token = r.access_token; $('pull').disabled = $('push').disabled = $('deploy').disabled = false;
-      $('signin').textContent = 'Signed in'; log('Signed in. Load the project or upload files.');
-    }
+  if (!cid) return log('Enter your OAuth client ID first.',1);
+  const st = Math.random().toString(36).slice(2);
+  try{ sessionStorage.setItem('sd_state', st); }catch(e){}
+  log('Redirecting to Google…');
+  location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + new URLSearchParams({
+    client_id: cid, redirect_uri: REDIRECT, response_type: 'token', scope: SCOPE, state: st, include_granted_scopes: 'true', prompt: 'consent'
   });
-  tokenClient.requestAccessToken();
 };
+(function(){
+  if (!location.hash.includes('access_token') && !location.hash.includes('error=')) return;
+  const p = new URLSearchParams(location.hash.slice(1));
+  history.replaceState(null, '', location.pathname);
+  let ok = true;
+  try{ ok = sessionStorage.getItem('sd_state') === p.get('state'); }catch(e){}
+  if (p.get('error')) return log('Sign-in failed: '+p.get('error'),1);
+  if (!ok) return log('Sign-in check failed. Tap Sign in again.',1);
+  onSignedIn(p.get('access_token'));
+})();
 
 async function api(method, body){
   const sid = $('sid').value.trim();
