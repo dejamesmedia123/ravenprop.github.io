@@ -1,14 +1,234 @@
 <!DOCTYPE html>
-<html>
-
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title></title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Script Deck</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<style>
+:root{--bg:#eef0f4;--panel:#fff;--ink:#1d2433;--mute:#6b7488;--line:#d7dbe4;--acc:#3b3f9e;--acc2:#e8e9f7;--bad:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#161a26;--panel:#1f2434;--ink:#e6e9f2;--mute:#98a1b8;--line:#33394d;--acc:#9ea3ff;--acc2:#2a3050;--bad:#ff8a80}}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;display:flex;flex-direction:column}
+header{padding:10px 12px;background:var(--panel);border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+h1{font-size:17px;margin:0 8px 0 0;font-weight:700}
+input[type=text]{flex:1 1 180px;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+button,.btn{padding:8px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--ink);font:inherit;cursor:pointer}
+button.p{background:var(--acc);border-color:var(--acc);color:#fff}
+@media (prefers-color-scheme:dark){button.p{color:#12152a}}
+button:disabled{opacity:.45;cursor:default}
+button:focus-visible,input:focus-visible,.file:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+#bar{display:flex;flex-wrap:wrap;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel)}
+main{flex:1;display:flex;min-height:0}
+#files{width:210px;overflow:auto;background:var(--panel);border-right:1px solid var(--line);padding:6px}
+.file{padding:8px 10px;border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;gap:6px;word-break:break-all}
+.file.on{background:var(--acc2);font-weight:600}
+.file small{color:var(--mute);font-weight:400}
+.file .x{color:var(--bad);border:0;background:none;padding:0 4px}
+#ed{flex:1;min-width:0;display:flex;flex-direction:column}
+.CodeMirror{flex:1;height:auto;font:13px/1.5 ui-monospace,Menlo,Consolas,monospace;background:var(--panel);color:var(--ink)}
+.CodeMirror-gutters{background:var(--bg);border-right:1px solid var(--line)}
+.CodeMirror-cursor{border-left-color:var(--ink)}
+.cm-s-default .cm-keyword{color:#8e3ba8}.cm-s-default .cm-string{color:#0b7a4b}.cm-s-default .cm-comment{color:#8a93a8}.cm-s-default .cm-number{color:#b65a00}.cm-s-default .cm-def,.cm-s-default .cm-variable-2{color:#1b5fb8}
+@media (prefers-color-scheme:dark){.cm-s-default .cm-keyword{color:#d7a2f0}.cm-s-default .cm-string{color:#7fd8a8}.cm-s-default .cm-number{color:#ffb86b}.cm-s-default .cm-def,.cm-s-default .cm-variable-2{color:#8fc0ff}.cm-s-default .cm-variable,.cm-s-default .cm-property{color:var(--ink)}}
+#log{padding:8px 12px;border-top:1px solid var(--line);background:var(--panel);font-size:13px;color:var(--mute);min-height:38px;white-space:pre-wrap}
+#log.err{color:var(--bad)}
+@media (max-width:640px){main{flex-direction:column}#files{width:100%;max-height:34%;border-right:0;border-bottom:1px solid var(--line)}}
+</style>
 </head>
-
 <body>
-  
-</body>
+<header>
+  <h1>Script Deck</h1>
+  <input type="text" id="cid" placeholder="Google OAuth client ID" aria-label="OAuth client ID">
+  <input type="text" id="sid" placeholder="Apps Script project ID" aria-label="Script ID">
+  <button class="p" id="signin">Sign in</button>
+</header>
+<div id="bar">
+  <button id="pull" disabled>Load from project</button>
+  <button id="push" class="p" disabled>Push all to project</button>
+  <button id="deploy" disabled>Deploy new version</button>
+  <label class="btn">Upload zip or files<input type="file" id="up" multiple accept=".zip,.gs,.js,.html,.json" hidden></label>
+  <button id="add">New file</button>
+  <button id="dl">Download zip</button>
+</div>
+<main>
+  <nav id="files" aria-label="Project files"></nav>
+  <div id="ed"><textarea id="ta"></textarea></div>
+</main>
+<div id="log" role="status">Enter your client ID and script ID, then sign in.</div>
 
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const API = 'https://script.googleapis.com/v1/projects/';
+let token = null, tokenClient = null, files = {}, cur = null;
+// files: { name: { type:'SERVER_JS'|'HTML'|'JSON', source } }
+
+const cm = CodeMirror.fromTextArea($('ta'), {lineNumbers:true, lineWrapping:false, indentUnit:2, tabSize:2, indentWithTabs:false});
+cm.on('change', () => { if (cur && files[cur]) files[cur].source = cm.getValue(); });
+
+function log(m, err){ const l=$('log'); l.textContent=m; l.className=err?'err':''; }
+function saved(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
+function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+$('cid').value = saved('sd_cid'); $('sid').value = saved('sd_sid');
+
+const EXT = {SERVER_JS:'.gs', HTML:'.html', JSON:'.json'};
+function modeFor(t){ return t==='HTML' ? 'htmlmixed' : t==='JSON' ? {name:'javascript',json:true} : 'javascript'; }
+
+function render(){
+  const box = $('files'); box.innerHTML = '';
+  Object.keys(files).sort().forEach(n => {
+    const d = document.createElement('div');
+    d.className = 'file' + (n===cur?' on':''); d.tabIndex = 0;
+    const s = document.createElement('span'); s.textContent = n;
+    const sm = document.createElement('small'); sm.textContent = EXT[files[n].type];
+    s.appendChild(sm); d.appendChild(s);
+    const x = document.createElement('button'); x.className='x'; x.textContent='Delete'; x.setAttribute('aria-label','Delete '+n);
+    x.onclick = e => { e.stopPropagation(); if (confirm('Delete '+n+' from this session?')) { delete files[n]; if (cur===n) cur=null; open(Object.keys(files)[0]); } };
+    d.appendChild(x);
+    d.onclick = () => open(n);
+    d.onkeydown = e => { if (e.key==='Enter') open(n); };
+    box.appendChild(d);
+  });
+}
+function open(n){
+  cur = n && files[n] ? n : null;
+  if (cur){ cm.setOption('mode', modeFor(files[cur].type)); cm.setValue(files[cur].source); }
+  else cm.setValue('');
+  render(); cm.refresh();
+}
+
+function typeOf(path){
+  const l = path.toLowerCase();
+  if (l.endsWith('appsscript.json')) return {name:'appsscript', type:'JSON'};
+  const base = path.replace(/\\/g,'/').replace(/^\.?\//,'');
+  if (l.endsWith('.gs')||l.endsWith('.js')) return {name:base.replace(/\.(gs|js)$/i,''), type:'SERVER_JS'};
+  if (l.endsWith('.html')) return {name:base.replace(/\.html$/i,''), type:'HTML'};
+  return null;
+}
+async function ingest(list){
+  let n = 0, skipped = 0;
+  for (const f of list){
+    if (f.name.toLowerCase().endsWith('.zip')){
+      const z = await JSZip.loadAsync(f);
+      for (const p of Object.keys(z.files)){
+        if (z.files[p].dir || p.includes('__MACOSX') || /(^|\/)\./.test(p)) continue;
+        const t = typeOf(p);
+        if (!t) { skipped++; continue; }
+        // keep the manifest only if it is the root-level or shallowest one
+        if (t.name==='appsscript' && files.appsscript && p.split('/').length>1) continue;
+        files[t.name] = {type:t.type, source: await z.files[p].async('string')}; n++;
+      }
+    } else {
+      const t = typeOf(f.name);
+      if (!t) { skipped++; continue; }
+      files[t.name] = {type:t.type, source: await f.text()}; n++;
+    }
+  }
+  open(cur && files[cur] ? cur : Object.keys(files).sort()[0]);
+  log(n+' file(s) loaded'+(skipped?', '+skipped+' skipped (not .gs, .js, .html or appsscript.json)':'')+'. Edit, then push.');
+}
+$('up').onchange = async e => { try{ await ingest([...e.target.files]); }catch(x){ log('Upload failed: '+x.message,1); } e.target.value=''; };
+
+$('add').onclick = () => {
+  const n = prompt('File name (e.g. Utils.gs or page.html)'); if (!n) return;
+  const t = typeOf(n); if (!t) return log('Use a .gs, .js, .html or appsscript.json name.',1);
+  if (files[t.name]) return log(t.name+' already exists.',1);
+  files[t.name] = {type:t.type, source:''}; open(t.name);
+};
+
+// ---- Auth ----
+$('signin').onclick = () => {
+  const cid = $('cid').value.trim();
+  if (!cid) return log('Paste your OAuth client ID first.',1);
+  if (!window.google || !google.accounts) return log('Google sign-in is still loading. Try again in a moment.',1);
+  save('sd_cid', cid);
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: cid,
+    scope: 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments',
+    callback: r => {
+      if (r.error) return log('Sign-in failed: '+r.error,1);
+      token = r.access_token; $('pull').disabled = $('push').disabled = $('deploy').disabled = false;
+      $('signin').textContent = 'Signed in'; log('Signed in. Load the project or upload files.');
+    }
+  });
+  tokenClient.requestAccessToken();
+};
+
+async function api(method, body){
+  const sid = $('sid').value.trim();
+  if (!sid) throw new Error('Enter the Script ID first.');
+  save('sd_sid', sid);
+  const r = await fetch(API+encodeURIComponent(sid)+'/content', {
+    method, headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+  return j;
+}
+
+$('pull').onclick = async () => {
+  if (Object.keys(files).length && !confirm('Replace the files in this editor with the project\'s current files?')) return;
+  try{
+    log('Loading…'); const j = await api('GET');
+    files = {}; (j.files||[]).forEach(f => files[f.name] = {type:f.type, source:f.source||''});
+    open(Object.keys(files).sort()[0]); log((j.files||[]).length+' file(s) loaded from the project.');
+  }catch(e){ log('Load failed: '+e.message,1); }
+};
+
+$('push').onclick = async () => {
+  if (cur) files[cur].source = cm.getValue();
+  const names = Object.keys(files);
+  if (!files.appsscript) return log('appsscript.json is missing. Load the project first, or upload your manifest, or the push will be rejected.',1);
+  if (!confirm('Overwrite ALL files in the Apps Script project with these '+names.length+' file(s)? Files not listed here will be deleted.')) return;
+  try{
+    log('Pushing…');
+    await api('PUT', {files: names.map(n => ({name:n, type:files[n].type, source:files[n].source}))});
+    log('Pushed '+names.length+' file(s). Tap "Deploy new version" to make your live web app use them.');
+  }catch(e){ log('Push failed: '+e.message,1); }
+};
+
+async function gcall(path, method, body){
+  const sid = $('sid').value.trim();
+  if (!sid) throw new Error('Enter the Script ID first.');
+  const r = await fetch(API+encodeURIComponent(sid)+path, {
+    method, headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
+    body: body ? JSON.stringify(body) : undefined
+  });
+  const j = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+  return j;
+}
+$('deploy').onclick = async () => {
+  try{
+    const sid = $('sid').value.trim();
+    log('Creating version…');
+    const v = await gcall('/versions', 'POST', {description:'Script Deck '+new Date().toISOString().slice(0,16).replace('T',' ')});
+    const d = await gcall('/deployments', 'GET');
+    const list = (d.deployments||[]).filter(x => x.deploymentConfig && x.deploymentConfig.versionNumber);
+    const web = list.find(x => (x.entryPoints||[]).some(e => e.entryPointType==='WEB_APP')) || list[0];
+    if (!web){ return log('Version '+v.versionNumber+' created, but no versioned deployment exists yet. In Apps Script, use Deploy > New deployment > Web app once, then use this button.',1); }
+    if (!confirm('Point deployment '+web.deploymentId.slice(0,12)+'… at version '+v.versionNumber+'?')) return log('Version '+v.versionNumber+' created but not deployed.');
+    await gcall('/deployments/'+encodeURIComponent(web.deploymentId), 'PUT', {deploymentConfig:{scriptId:sid, versionNumber:v.versionNumber, manifestFileName:'appsscript', description:web.deploymentConfig.description||'Script Deck'}});
+    log('Live. Deployment now runs version '+v.versionNumber+'. Your web app URL stays the same.');
+  }catch(e){ log('Deploy failed: '+e.message,1); }
+};
+
+$('dl').onclick = async () => {
+  if (cur) files[cur].source = cm.getValue();
+  const z = new JSZip();
+  Object.keys(files).forEach(n => z.file(n+EXT[files[n].type], files[n].source));
+  const b = await z.generateAsync({type:'blob'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'apps-script-project.zip'; a.click();
+};
+</script>
+</body>
 </html>
