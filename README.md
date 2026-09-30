@@ -1,138 +1,555 @@
-# Raven Prop: Simple Setup Guide
+# Raven Prop: Full Setup Guide (step by step)
 
-## What is in this folder?
-
-Your project has 3 parts. Think of it like a shop:
-
-| Part | What it is | Files |
-|------|-----------|-------|
-| **The shop window** | The website people see | `index.html`, `admin.html`, `assets/` |
-| **The back office** | The brain. Handles sign-ups, payments, payouts | `Code.gs`, `Access.gs`, `Engine.gs`, `Money.gs`, `Ops.gs`, `appsscript.json` |
-| **The daily checker** (optional) | Checks trading account balances once a day | `equity_monitor.py`, `.github/workflows/equity.yml` |
-
-Your data (users, payments, and so on) is kept in a **Google Sheet** that the back office creates for you.
-
-**Other files:** `CNAME` (your domain name: ravenprop.cfd), `robots.txt`, `sitemap.xml`, `site.webmanifest` (website extras), `.gitignore` (tells GitHub which files to keep private).
+This guide assumes you have never done this before. Follow the steps **in order**. After many steps there is a **"You should see"** line so you know it worked. If you do not see it, stop and check the Troubleshooting table at the bottom.
 
 ---
 
-## STEP 1: Set up the back office (Google Apps Script)
+## Folder structure
 
-1. Go to https://script.google.com and sign in with the Google account that will OWN the business.
-2. Click **New project**. Name it `Raven Prop`.
-3. Delete everything in the default file.
-4. Create one script file for each of these and paste in the contents:
-   - `Code.gs`
-   - `Access.gs`
-   - `Engine.gs`
-   - `Money.gs`
-   - `Ops.gs`
+Everything is in one folder called `raven`. The only sub-folder is `.github/workflows/`, and it must stay exactly like this because GitHub only runs the balance checker from that path.
 
-   (Click the **+** next to "Files" > **Script**. Type the name without `.gs`.)
-5. Click the gear icon (**Project Settings**) and tick **Show "appsscript.json" manifest file in editor**.
-6. Open `appsscript.json` in the editor and replace its contents with the one from this folder.
-7. Click **Save**.
+```
+raven/
+├── index.html            website (public pages and trader area)
+├── admin.html            admin page (your control panel)
+├── logo.svg
+├── favicon.svg
+├── og-image.png
+├── twitter-card.jpg
+├── site.webmanifest
+├── robots.txt
+├── sitemap.xml
+├── CNAME                 your domain (ravenprop.cfd)
+├── Code.gs, Access.gs               back office code, split into small files
+├── Engine.gs, Engine_2.gs
+├── Money.gs ... Money_13.gs
+├── Ops.gs ... Ops_5.gs
+├── appsscript.json
+├── equity_monitor.py     balance checker (Python)
+├── README.md             this guide
+├── .gitignore            stops secrets being uploaded
+└── .github/
+    └── workflows/
+        └── equity.yml    schedule that runs the balance checker on GitHub
+```
 
-## STEP 2: Add your secret settings
+Upload the **whole `raven` folder contents to GitHub with this same structure**. Do not move `equity.yml` out of `.github/workflows/`.
 
-1. In Apps Script, click the gear icon (**Project Settings**).
-2. Scroll to **Script Properties** > **Add script property**.
-3. Add these (name on the left, value on the right):
-
-| Name | Value | When |
-|------|-------|------|
-| `BOOTSTRAP_OPEN` | `true` | Now (see Step 4) |
-| `OWNER_EMAIL` | your email | Now |
-| `EQUITY_SECRET` | any long random password | Only if you use the daily checker (Step 7) |
-| `SQUAD_SECRET_KEY` | from Squad | Only if you accept card payments with Squad |
-| `FLW_SECRET_KEY` | from Flutterwave | Only if you use Flutterwave |
-| `MONNIFY_API_KEY`, `MONNIFY_SECRET_KEY`, `MONNIFY_CONTRACT_CODE` | from Monnify | Only if you use Monnify |
-| `MONNIFY_ENV` | `sandbox` (testing) or `live` | Only if you use Monnify |
-
-Leave the payment ones empty for now. You can add them later.
-
-## STEP 3: Publish the back office and get its link
-
-1. Click **Deploy** > **New deployment**.
-2. Click the gear icon next to "Select type" and choose **Web app**.
-3. Set **Execute as: Me**.
-4. Set **Who has access: Anyone**.
-5. Click **Deploy**. Google will ask you to allow permissions. Click **Allow** (if it warns "unsafe", click **Advanced** > **Go to Raven Prop**).
-6. **Copy the Web app URL.** It ends in `/exec`. You need it in the next step.
-
-> Every time you change the .gs code later, do **Deploy > Manage deployments > Edit (pencil) > Version: New version > Deploy**. The link stays the same.
-
-## STEP 4: Connect the website to the back office
-
-You need to paste the link from Step 3 into two files.
-
-1. Open `index.html` in a text editor (Notepad works). Search for:
-   `PASTE_APPS_SCRIPT_WEB_APP_URL_HERE`
-   Replace it with your `/exec` link. Keep the quote marks.
-2. Do the same in `admin.html`.
-3. Also in `index.html`, search for `YOUR-DOMAIN.com` and replace every one with `ravenprop.cfd` (or your real domain).
-
-## STEP 5: Put the website online (GitHub Pages)
-
-1. Create a free account at https://github.com.
-2. Click **New repository**. Name it `raven`. Make it **Public**. Click **Create**.
-3. Click **uploading an existing file**. Drag in everything from this folder (including the `assets` and `.github` folders). Click **Commit changes**.
-4. Go to **Settings** > **Pages**. Under "Branch" pick `main` and `/ (root)`. Click **Save**.
-5. Under "Custom domain" type `ravenprop.cfd` and save. (The `CNAME` file already says this.)
-6. At the company where you bought the domain, point it to GitHub Pages. GitHub shows the exact instructions on that same page. Look for "Configuring a custom domain".
-7. Wait a few minutes, then open your domain. You should see the site.
-
-## STEP 6: Create your owner account (do this first!)
-
-1. On your live website, click **Start Challenge** and sign up with your own email and a strong password.
-2. **The FIRST person to sign up becomes the owner.** The back office also creates your "Raven Prop Data" Google Sheet at this moment.
-3. Go back to Apps Script > **Project Settings** > **Script Properties**.
-   **Delete `BOOTSTRAP_OPEN`** (or set it to `false`). This stops strangers from taking over.
-4. Open `yourdomain.com/admin.html` and sign in with the same account. This is your control panel.
-
-## STEP 7: Turn on the automatic jobs
-
-1. In Apps Script, use the function dropdown at the top and pick `ops_installTriggers`.
-2. Click **Run**. Allow permissions if asked.
-3. This sets up the timed jobs, one every 10 minutes and one daily. You only do this once.
-
-## STEP 8: Fill in the business details (in the admin panel)
-
-Open `admin.html` and check:
-- **Plans and prices**
-- **Countries and currencies**
-- **Settings** (brand name, support email, WhatsApp link)
-- **Legal pages**: the Terms, Privacy and Risk pages on the site are placeholders marked `[DRAFT PLACEHOLDER]`. Have them replaced with lawyer-reviewed text before launch. They are inside `index.html`.
-
-## STEP 9 (optional): Daily balance checker
-
-This only matters when you have real MT5 trading accounts to watch. **The code's own notes say the MT5 install part is untested. Do a trial run first.**
-
-1. In your GitHub repository, go to **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
-2. Add `RAVEN_API_URL` (your `/exec` link from Step 3).
-3. Add `EQUITY_SECRET` (the **exact same** value you saved in Step 2).
-4. Go to the **Actions** tab > **Equity check** > **Run workflow** to try it.
-5. If it works, it then runs by itself every day.
+> `.github` and `.gitignore` start with a dot, so they are hidden on Mac and Linux. On Mac press **Cmd + Shift + .** in Finder to show hidden files. On Windows they are visible by default.
 
 ---
 
-## Things that are still missing
+## About the minified files
 
-- These icons are referenced by the site but are not in the folder, so browsers will show errors for them: `assets/favicon.ico`, `assets/favicon-32.png`, `assets/apple-touch-icon.png`, `assets/icon-512.png`. Add them, or ignore them for now.
-- The site shows pictures from Unsplash (an online photo site), so it needs internet to show them.
+The code files in this folder are **minified**: comments and spaces are removed and inner variable names are shortened, so the files are smaller and load faster. They work exactly the same as the readable versions, but they are hard to read and edit by hand.
+
+- Files minified: all the back office `.gs` files, `index.html`, `admin.html`, `equity_monitor.py`, `equity.yml`, `appsscript.json`.
+- Public function names such as `ops_installTriggers` are **not** changed, so every instruction in this guide still works.
+- The zip `raven-source-unminified.zip` has the versions from before minifying (with comments). **Keep it.** Edit those, then minify again, instead of editing the minified files.
+- The comment that explained the `cron` time in `equity.yml` was removed. The time is on the line `cron: "5 0 * * *"` (00:05 UTC). Change the numbers to match your broker's midnight.
+
+---
+
+## PART 0: Understand what you have
+
+Your project has 3 parts. Think of a shop:
+
+| Part | What it does | Files |
+|------|--------------|-------|
+| **Shop window** | The website people see and the admin page you use | `index.html`, `admin.html`, `logo.svg`, `favicon.svg`, `og-image.png`, `twitter-card.jpg` |
+| **Back office** | The brain. Sign-ups, payments, accounts, payouts, emails. It runs free on Google | the 22 `.gs` files listed in Part 2, `appsscript.json` |
+| **Balance checker** | A Python script that reads trading account balances so the system knows who passed or breached | `equity_monitor.py`, `.github/workflows/equity.yml` |
+
+Your data (users, orders, payouts, accounts) is stored in a **Google Sheet** that the back office creates by itself. You never edit code to run daily business. You use `admin.html`.
+
+Other files: `CNAME` (your domain, `ravenprop.cfd`), `robots.txt` and `sitemap.xml` (for Google search), `site.webmanifest` (phone home-screen icon info), `.gitignore` (stops secrets being uploaded).
+
+**How money and accounts flow, in plain words**
+1. You buy demo trading accounts from a broker in bulk and load them into the **Account pool** (Part 8).
+2. A trader pays a fee on your website. The system hands them one account from the pool.
+3. The **balance checker** (Part 10) reads that account's balance. The system decides pass, breach or keep going.
+4. A funded trader asks for a payout. You review it in the admin page and pay them by bank transfer yourself.
+
+---
+
+## PART 1: Before you start (checklist)
+
+Tick each one. Do not skip.
+
+- [ ] A **Google account** you will keep forever (this becomes the owner of the database). Use a business Gmail, not a friend's.
+- [ ] A **GitHub account** (free): https://github.com
+- [ ] Your **domain** (`ravenprop.cfd`) and access to where you bought it (the "DNS settings" page).
+- [ ] A text editor. **Notepad** works. Better: free **VS Code** (https://code.visualstudio.com).
+- [ ] A **broker with MetaTrader 5 (MT5) demo accounts** you can buy or create in bulk. Write down the exact **server name** (for example `BrokerName-Demo`). You need this in Part 8 and Part 10.
+- [ ] For card and bank payments: an account with **Squad**, **Flutterwave** or **Monnify** (optional at first; crypto works without them).
+- [ ] A USDT wallet on the **TRC-20** network to receive crypto payments (optional).
+
+Time needed: about 2 to 3 hours for Parts 2 to 9.
+
+---
+
+## PART 2: Create the back office (Google Apps Script)
+
+1. Open https://script.google.com and sign in with the Google account from Part 1.
+2. Click **New project**. At the top click "Untitled project" and rename it `Raven Prop`.
+3. You will see a file called `Code.gs` with a few lines. **Select all the text in it and delete it.**
+4. Open this folder's `Code.gs` in your text editor. Select all (Ctrl+A), copy (Ctrl+C). Go back to Apps Script, click inside the empty `Code.gs`, paste (Ctrl+V).
+5. Create the other 21 files, one at a time. For each one:
+   - Click the **+** next to "Files" > **Script**.
+   - Type the name **without** `.gs`. Example: type `Access` (it becomes `Access.gs`), or `Money_2` for `Money_2.gs`. The name must match exactly.
+   - Delete the default text, paste the contents from this folder's file of the same name.
+   - Use this list and tick each one off. The back office is split into small files (none is longer than 246 lines):
+
+| # | File | Lines |
+|---|------|-------|
+| 1 | `Code.gs` | 208 |
+| 2 | `Access.gs` | 52 |
+| 3 | `Engine.gs` | 223 |
+| 4 | `Engine_2.gs` | 205 |
+| 5 | `Money.gs` | 245 |
+| 6 | `Money_2.gs` | 246 |
+| 7 | `Money_3.gs` | 179 |
+| 8 | `Money_4.gs` | 244 |
+| 9 | `Money_5.gs` | 229 |
+| 10 | `Money_6.gs` | 240 |
+| 11 | `Money_7.gs` | 246 |
+| 12 | `Money_8.gs` | 238 |
+| 13 | `Money_9.gs` | 236 |
+| 14 | `Money_10.gs` | 213 |
+| 15 | `Money_11.gs` | 132 |
+| 16 | `Money_12.gs` | 193 |
+| 17 | `Money_13.gs` | 163 |
+| 18 | `Ops.gs` | 228 |
+| 19 | `Ops_2.gs` | 108 |
+| 20 | `Ops_3.gs` | 232 |
+| 21 | `Ops_4.gs` | 246 |
+| 22 | `Ops_5.gs` | 90 |
+
+   Order does not matter (I tested loading them in many different orders), but **all 22 files must be there**. If one is missing you will get "is not defined" errors later.
+6. Click the **gear icon** on the left (**Project settings**). Tick **"Show 'appsscript.json' manifest file in editor"**.
+7. Go back to **Editor** (the `< >` icon). Open `appsscript.json`. Delete everything and paste the contents of this folder's `appsscript.json`.
+8. Press **Ctrl+S** to save all.
+
+**You should see:** 22 `.gs` files plus `appsscript.json` on the left, and no red error marks.
+
+> Tip: after pasting each file press Ctrl+S. When you finish, count the files on the left. It should be 22 `.gs` files.
+> If you ever change code, keep every file under about 250 lines by adding a new file (for example `Money_14`) instead of making one file bigger.
+
+---
+
+## PART 3: Add the secret settings (Script Properties)
+
+These are passwords the code reads. They never go on the website.
+
+1. Click the **gear icon** (Project settings).
+2. Scroll down to **Script Properties**. Click **Add script property**.
+3. Add each of the ones you need below. Left box = name (copy exactly, capital letters). Right box = value.
+4. Click **Save script properties** at the end.
+
+| Name | What to put | When you need it |
+|------|-------------|------------------|
+| `BOOTSTRAP_OPEN` | `true` | Now. It lets the first sign-up become the owner. **You will delete it in Part 7.** |
+| `OWNER_EMAIL` | your email | Now. Alerts (new crypto order, low stock) are sent here. |
+| `EQUITY_SECRET` | a long random password, at least 30 characters | Only if you use the Python checker. Make one at https://www.random.org/passwords or type random letters and numbers. **Write it down. You need the same value in Part 10.** |
+| `SETUP_KEY` | optional | Alternative to `BOOTSTRAP_OPEN` (see the note in Part 7). Leave empty. |
+| `SQUAD_SECRET_KEY` | your Squad secret key | Only for Squad payments |
+| `FLW_SECRET_KEY` | your Flutterwave secret key | Only for Flutterwave payments |
+| `MONNIFY_API_KEY`, `MONNIFY_SECRET_KEY`, `MONNIFY_CONTRACT_CODE` | from Monnify dashboard | Only for Monnify |
+| `MONNIFY_ENV` | `sandbox` while testing, `live` when real | Only for Monnify |
+| `POOL_ENC_KEY` | a long random password | Optional. Encrypts the trading account passwords stored in your Sheet. **Recommended.** Set it BEFORE you import accounts (Part 8). If you lose it you lose access to those passwords. Save it somewhere safe. |
+| `METAAPI_TOKEN` | leave empty | Optional, not needed |
+
+Use **test/sandbox keys first**, switch to live keys only when you are ready to take real money.
+
+---
+
+## PART 4: Publish the back office and get its link
+
+1. Top right, click **Deploy** > **New deployment**.
+2. Click the **gear icon** next to "Select type" > choose **Web app**.
+3. Fill in:
+   - Description: `v1`
+   - **Execute as:** `Me`
+   - **Who has access:** `Anyone`
+4. Click **Deploy**.
+5. Google asks to **Authorize access**. Click it, choose your account. If you see "Google hasn't verified this app": click **Advanced** > **Go to Raven Prop (unsafe)** > **Allow**. This is normal because it is your own script.
+6. You will get a **Web app URL** that ends in `/exec`. **Click Copy and paste it into a Notepad file. Keep it. You need it in Parts 5 and 10.**
+
+**Test it:** paste that URL into a new browser tab.
+**You should see:** text like `{"ok":true,"data":{"service":"raven-prop-api","status":"up"},...}`
+
+If you see a Google login page instead, "Who has access" is not set to `Anyone`. Go to **Deploy > Manage deployments > pencil icon**, fix it, and choose **New version**.
+
+> **Every time you change any `.gs` code later:** Deploy > Manage deployments > pencil icon > Version: **New version** > Deploy. The link stays the same. Just saving is not enough.
+
+---
+
+## PART 5: Connect the website to the back office
+
+You edit 3 small things in the website files. Use Ctrl+F (Find) in your editor.
+
+**In `index.html`:**
+1. Find `PASTE_APPS_SCRIPT_WEB_APP_URL_HERE`. Replace it with your `/exec` link. Keep the quote marks around it.
+2. Find `YOUR-DOMAIN.com` (about 7 times). Replace every one with `ravenprop.cfd` (or your real domain). Use "Replace all".
+
+**In `admin.html`:**
+3. Find `PASTE_APPS_SCRIPT_WEB_APP_URL_HERE`. Replace it with the same `/exec` link.
+
+**In `sitemap.xml` and `robots.txt`:**
+4. Replace `YOUR-DOMAIN.com` with `ravenprop.cfd`.
+
+Save all four files.
+
+**You should see:** searching for `PASTE_` or `YOUR-DOMAIN` in these files finds nothing.
+
+---
+
+## PART 6: Put the website online (GitHub Pages)
+
+**A. Upload the files**
+1. Log in to https://github.com. Click **+** (top right) > **New repository**.
+2. Name: `raven`. Choose **Public**. Click **Create repository**.
+3. Click **uploading an existing file**.
+4. Open the `raven` folder on your computer. Select **everything inside it** (Ctrl+A), including the `.github` folder, and drag it all into the GitHub page. GitHub keeps the folder structure. Check that the file list on the page shows `.github/workflows/equity.yml`. If hidden files do not appear on your computer, turn on "show hidden files" first (see the Folder structure note above).
+5. Scroll down and click **Commit changes**.
+
+**B. Turn on the website**
+6. In the repository click **Settings** > **Pages** (left side).
+7. Under **Build and deployment** > **Source**: `Deploy from a branch`. Branch: `main`, folder: `/ (root)`. Click **Save**.
+8. Wait 1 to 3 minutes. Refresh. You will see "Your site is live at https://YOURNAME.github.io/raven/".
+
+**C. Connect your domain**
+9. Same Pages screen, **Custom domain**: type `ravenprop.cfd`. Click **Save**.
+10. Go to where you bought the domain. Open **DNS settings** and add:
+
+| Type | Name (Host) | Value |
+|------|-------------|-------|
+| A | `@` | `185.199.108.153` |
+| A | `@` | `185.199.109.153` |
+| A | `@` | `185.199.110.153` |
+| A | `@` | `185.199.111.153` |
+| CNAME | `www` | `YOURNAME.github.io` (your GitHub username) |
+
+    (GitHub can change these. Check https://docs.github.com/pages under "Managing a custom domain" if in doubt.)
+11. Wait 10 minutes to a few hours. Back on the GitHub Pages screen, tick **Enforce HTTPS** once it becomes available.
+
+**You should see:** `https://ravenprop.cfd` opens your website with a padlock.
+
+---
+
+## PART 7: Create your owner account (do this FIRST, before anyone else)
+
+1. Open your website. Click **Start Challenge** or **Create account**.
+2. Sign up with **your own** email and a strong password. Write the password down.
+3. **The first person to sign up becomes the owner.** At this moment the system also creates your database Sheet (named "Raven Prop Data") in your Google Drive.
+4. **Right away**, go back to Apps Script > Project settings > Script Properties. **Delete `BOOTSTRAP_OPEN`** (click the trash icon), then Save. This closes the door so nobody else can become the owner.
+5. Open `https://ravenprop.cfd/admin.html` and sign in with the same email and password.
+
+**You should see:** the admin page with the menu Overview, Challenges, Crypto orders, Payouts, Payments, Payment setup, Challenge plans, Account pool, Users, Affiliates, Breach log, Support, Settings, Audit log.
+
+**If sign-up says "The system is not set up yet":** `BOOTSTRAP_OPEN` is missing or not `true` (Part 3). Add it and try again.
+
+Open Google Drive and check that **"Raven Prop Data"** exists. **Keep it private. Never share it.** It holds sensitive data.
+
+---
+
+## PART 8: Turn on the automatic jobs
+
+The system needs two timed jobs (one every 10 minutes: checks pending payments and expires old orders; one daily: inactivity breaches, affiliate holds, data archive).
+
+1. In Apps Script, open the file `Ops.gs`.
+2. In the toolbar find the function dropdown (next to the Run button). Choose **`ops_installTriggers`**.
+3. Click **Run**. Allow permissions if asked.
+
+**You should see:** "Execution completed" at the bottom. Click the clock icon (**Triggers**) on the left: you should see `ops_every10` and `ops_daily`.
+
+You only do this once.
+
+---
+
+## PART 9: Set up the business in the admin page
+
+Go through the admin menu in this order.
+
+### 9.1 Settings
+Open **Settings**. Check at least:
+- `brand_name`, `support_email`, `whatsapp_link`
+- `site_url` = `https://ravenprop.cfd` (used in emails and referral links)
+- `signup_enabled` = true
+- `maintenance_mode` = false
+
+### 9.2 Challenge plans
+Open **Challenge plans** > **New plan**. For each product you sell, set the account size, fee (USD), profit targets, daily loss limit, max loss limit, minimum trading days and inactivity days. Save. Traders see these numbers before paying, so they are your legal promise (see the Terms page).
+
+
+### 9.2b The Starter plan ($3, then $2 after you pass)
+
+The code now includes a **Starter** plan (`starter-500`) in the starting plans:
+- $500 account, **$3 fee**, then **$2 pass fee** when the trader reaches the 10% target (they pay it to unlock the funded account).
+- One phase only (10% target), **10% max drawdown, static**. Daily drawdown is also set to 10% so it is not stricter than the max. Change it in Challenge plans if you want a separate daily rule.
+- **One purchase per user** (`max_per_user` = 1) and **no promo codes** (`no_promo` = true).
+- You need **500-size accounts in the Account pool** (Part 9.5).
+- The plan form in the admin page (**Challenge plans > New plan / Edit**) now has boxes for **Pass fee (USD)**, **Max purchases per user** and a **Promo codes not allowed** tick box, right after the fee. The plans table also shows these three columns.
+- The starting plans are only added when the Sheet is first built. If your Sheet already exists, run `sheet_buildAll_` once in Apps Script (it adds the new columns), then add the plan in **Challenge plans** with these same values: `pass_fee_usd` 2, `max_per_user` 1, `no_promo` true, `phase2_target` 0.
+- `phase2_target` = 0 means the plan skips Phase 2 and goes straight to Funded.
+
+### 9.3 Payment setup (crypto and currency)
+Open **Payment setup**.
+- **Add address:** coin `USDT`, network `TRC-20`, paste your wallet address (starts with `T`, 34 characters). Only TRC-20 is accepted by the code. **Send yourself a tiny test amount first.**
+- **Currencies / exchange rates:** add the currencies you accept and their markup. Click **Refresh live rates** to load current rates.
+- **Promo codes:** optional.
+
+### 9.4 Card and bank gateways (optional)
+1. Put the secret keys in Script Properties (Part 3).
+2. In **Settings** (group "payments") turn on the one you use: `gateway_squad_enabled`, `gateway_flutterwave_enabled` or `gateway_monnify_enabled`. They are OFF by default.
+3. For Nigeria, choose who handles it: `nigeria_use_monnify` or `nigeria_use_flutterwave` (otherwise Squad).
+4. Do a small test payment in sandbox before switching to live keys.
+
+### 9.5 Account pool (the trading accounts you sell)
+This is the stock. Each challenge buyer receives one.
+
+1. Buy or create MT5 **demo accounts** at your broker in bulk (one size per batch, for example 100 accounts of 10,000).
+2. Make a CSV file (Excel > Save As > CSV). **Header row exactly:**
+   ```
+   login,password,investor_password,server,size
+   ```
+   Then one row per account. Example:
+   ```
+   login,password,investor_password,server,size
+   5012345,Abc12345!,Inv67890!,BrokerName-Demo,10000
+   5012346,Abd12346!,Inv67891!,BrokerName-Demo,10000
+   ```
+   - `login` = MT5 account number
+   - `password` = the trader password (given to the buyer)
+   - `investor_password` = the **read-only** password (used by the balance checker, Part 10)
+   - `server` = exact MT5 server name from the broker
+   - `size` = account size in USD (must match a plan's size)
+3. Open the CSV in Notepad, select all, copy.
+4. Admin > **Account pool** > **Import accounts (CSV)**. Paste. Click **Check only** first (it tests without saving). Fix any rows it complains about. Then click **Import**.
+5. Set `pool_low_stock_default` (default 5) so you get an alert email when stock runs low.
+
+**Important:** never put this CSV on GitHub. The `.gitignore` blocks `.csv` files, so do not remove it. Delete the CSV from your computer after importing, or keep it somewhere private.
+
+### 9.6 Payouts
+- Settings group "payouts": `payout_enabled`, `payout_approval_hours`, `kyc_required_before_payout` (leave true), `payout_banks` (the list of banks traders can choose).
+- Payouts are paid **manually by you** (bank transfer). In admin > **Payouts** you Approve, then **Mark paid** after you send the money.
+
+### 9.7 Emails
+The system sends emails (receipts, alerts, password resets) from **your Google account** (limit about 100 per day on a normal Gmail, about 1,500 on Google Workspace). If you expect more users, use Google Workspace.
+
+---
+
+## PART 10: The Python balance checker (equity_monitor.py)
+
+### 10.1 What it is and why you need it
+The system must know each trader's balance to decide "passed" or "breached". Two ways to feed it:
+
+| Way | Effort | Best for |
+|-----|--------|----------|
+| **A. Manual CSV upload** (no Python) | You paste balances in the admin page | Starting out, a few traders |
+| **B. Python script** (`equity_monitor.py`) | Set up once, then automatic | Many traders |
+
+**Start with A if you are new.** You can add B later. Both feed the same rules.
+
+### 10.2 Way A: manual CSV upload (no Python)
+1. Get balances from your broker/MT5 (Export, or type them).
+2. Make text like this (columns: login, balance, equity, timestamp):
+   ```
+   login,balance,equity,timestamp
+   5012345,10450.20,10390.50,2026-09-29T00:05:00Z
+   ```
+   Optional extra columns: `last_trade`, `open_positions`.
+3. Admin > **Challenges**. Find the **Equity CSV** box. Paste. Click **Check only** first (it tests without saving), then click **Upload**.
+4. It says how many were updated, passed, breached.
+
+### 10.3 Way B: the Python script
+
+**What the script does, in plain words**
+1. Asks your back office: "Give me all active trading accounts and their read-only (investor) passwords."
+2. Opens MetaTrader 5, logs in to each one with the investor password.
+3. Reads balance, equity, open trades, last trade time.
+4. Sends the numbers back to the back office in batches of 50.
+5. Prints a summary. It never prints or saves passwords.
+
+**Important limits you must know**
+- The Python package `MetaTrader5` only works on **Windows** and needs the **MetaTrader 5 program installed**.
+- Your **broker's server** must be known to the MT5 program you install. Some brokers require their own MT5 installer.
+- Investor (read-only) passwords cannot place trades. They are safe for reading.
+
+You have two places to run it. **Option 1 (your own Windows PC or VPS) is more reliable. Try it first.**
+
+#### Option 1: Run it on your own Windows PC or Windows VPS (recommended)
+
+**Step 1. Install Python**
+1. Go to https://www.python.org/downloads and download Python **3.11** (64-bit).
+2. Run the installer. **Tick "Add python.exe to PATH"** at the bottom of the first screen. Click Install Now.
+3. Open **Command Prompt** (press Start, type `cmd`, Enter). Type `python --version`.
+   **You should see:** `Python 3.11.x`.
+
+**Step 2. Install the MetaTrader 5 program**
+1. Download the MT5 installer **from your broker's website** (best) or from https://www.metatrader5.com.
+2. Install and open it. Log in to any one of your pool accounts once (File > Login to Trade Account: enter login, the **investor** password, the server). This makes MT5 remember the server.
+3. Keep the MT5 program installed. The script will start it automatically.
+
+**Step 3. Install the Python package**
+In Command Prompt type:
+```
+pip install MetaTrader5
+```
+**You should see:** "Successfully installed MetaTrader5".
+
+**Step 4. Put the script in a folder**
+1. Create a folder `C:\raven`.
+2. Copy `equity_monitor.py` into it.
+
+**Step 5. Give the script its two secrets**
+In Command Prompt type these two lines. Replace the values with **your `/exec` link (Part 4)** and **your `EQUITY_SECRET` (Part 3)**:
+```
+set RAVEN_API_URL=https://script.google.com/macros/s/XXXXXXXX/exec
+set EQUITY_SECRET=your-long-secret-here
+```
+(These last only while this window is open. For a permanent setting see Step 8.)
+
+**Step 6. Tell the back office to expect the script**
+Admin > **Settings** > group "monitoring": set `equity_upload_method` to `script`.
+
+**Step 7. Run it**
+```
+cd C:\raven
+python equity_monitor.py
+```
+**You should see** a line like:
+`Accounts: 12 read: 12 failed login: 0 {'updated': 12, 'passed': 0, 'breached': 0}`
+
+Then open admin > **Challenges**. The balances should now be updated.
+
+**Step 8. Make it run every day by itself**
+1. Press Start, type **Task Scheduler**, open it.
+2. Click **Create Basic Task**. Name: `Raven equity`.
+3. Trigger: **Daily**. Time: shortly **after your broker's midnight** (so the start-of-day balance is captured correctly). Tip: if you want more frequent checks, add a second task for another time.
+4. Action: **Start a program**.
+   - Program/script: `cmd.exe`
+   - Add arguments: `/c "cd /d C:\raven && set RAVEN_API_URL=PASTE_YOUR_URL&& set EQUITY_SECRET=PASTE_YOUR_SECRET&& python equity_monitor.py >> log.txt 2>&1"`
+5. Finish. Right-click the task > **Run** to test. Open `C:\raven\log.txt` to see the output.
+6. The computer must be **on and logged in** at that time. A cheap Windows VPS is best for this.
+
+> The task stores your secret in plain text on that computer. Only use a computer you control, and do not share it.
+
+#### Option 2: Run it free on GitHub (GitHub Actions)
+
+This is automatic and free but **the MT5 installation step on GitHub is untested** (the file itself says so). It may fail because the plain MT5 installer does not know your broker's server. Try it only after Option 1 works, or if you accept some testing.
+
+**Step 1. Check the workflow file is in the right place**
+The file `.github/workflows/equity.yml` came in your upload (Part 6). In your repository click the **Code** tab and open `.github` > `workflows`. You should see `equity.yml`. If it is missing, click **Add file** > **Create new file**, type `.github/workflows/equity.yml` in the name box (each `/` makes a folder), paste the contents of that file from your `raven` folder, and click **Commit changes**.
+
+**Step 2. Add the two secrets**
+1. Repository > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
+2. Name `RAVEN_API_URL`, value = your `/exec` link. Save.
+3. Name `EQUITY_SECRET`, value = **exactly the same** as your Script Property. Save.
+
+**Step 3. Set the time**
+The file has `cron: "5 0 * * *"`. That means 00:05 **UTC** every day. Change the numbers if your broker's midnight is different. Keep the repository **Public** so the minutes are free.
+
+**Step 4. Test it**
+1. Repository > **Actions** tab > click **Equity check** on the left > **Run workflow** > **Run workflow**.
+2. Click the run to watch it. Green tick = worked. Click "Run monitor" to see the summary line.
+
+**Step 5. Admin setting**
+Admin > **Settings** > `equity_upload_method` = `script`.
+
+If it fails at "Install MT5 terminal" or with `MetaTrader 5 did not start`, use Option 1 instead.
+
+#### Reading the script's messages
+
+| Message | Meaning | Fix |
+|---------|---------|-----|
+| `RAVEN_API_URL and EQUITY_SECRET must be set.` | The two settings are missing | Redo Step 5 (or the GitHub secrets) |
+| `Could not fetch accounts: ...` | Wrong URL or wrong secret | Make sure `EQUITY_SECRET` matches the Script Property exactly (no spaces), and the URL ends in `/exec`. Redeploy a new version if you changed Script Properties |
+| `MetaTrader 5 did not start` | MT5 is not installed or cannot start | Install MT5 (Step 2). On a VPS, log in to the desktop once |
+| `failed login: 3` and `Could not read logins: 501...` | Those accounts could not be read | Check the server name and investor password in the pool. Make sure MT5 knows that server |
+| `Upload failed: ...` | Back office refused the data | Read the message. Usually a wrong secret or a bad number |
+| `Accounts: 0` | No active challenges yet | Normal until someone buys |
+
+Never paste `EQUITY_SECRET` in a chat, screenshot or public file.
+
+---
+
+## PART 11: Test everything before real customers
+
+Do a full dry run. Use sandbox keys or crypto with a tiny amount.
+
+1. Sign up as a **normal test user** with a different email (use a private/incognito window).
+2. Buy the cheapest plan. Check: the order appears in admin, the user receives an account from the pool.
+3. Feed a balance (Way A or B) that is above the target. Check the challenge moves to the next phase.
+4. Feed a balance below the loss limit. Check it is marked breached and the user gets an email.
+5. As a funded test user, request a payout. In admin approve it, pay a tiny amount to yourself, mark paid.
+6. Check emails are delivered (also look in the spam folder).
+7. Open the site on a phone.
+8. Delete test data or mark it clearly.
+
+---
+
+## PART 12: Go-live checklist
+
+- [ ] `BOOTSTRAP_OPEN` deleted from Script Properties
+- [ ] Only trusted people have owner/admin roles (Admin > Users)
+- [ ] Live payment keys added, sandbox keys removed, `MONNIFY_ENV` = `live` if used
+- [ ] Payment gateways switched on in Settings
+- [ ] Crypto wallet address tested
+- [ ] Pool has enough accounts of every size (with `POOL_ENC_KEY` set before importing)
+- [ ] Balance checker runs and updates (Part 10)
+- [ ] Triggers exist (Part 8)
+- [ ] Terms, Privacy and Risk pages read and correct (inside `index.html`). Section 16 of the Terms says "the country where Raven Prop is registered". Put your country there if you want. Have a local lawyer review them.
+- [ ] `support_email` works and someone reads it
+- [ ] Missing icons added (see the note below)
+- [ ] "Raven Prop Data" Sheet is private
+- [ ] Google Sheet backup: File > Make a copy, once a week
+
+---
+
+## Files the site expects but you do not have yet
+
+The site points to these small images. Without them the browser shows small errors but the site still works:
+`favicon.ico`, `favicon-32.png`, `apple-touch-icon.png`, `icon-512.png`, `icon-192.png`, `icon-maskable-512.png`
+
+Make them from your logo at https://realfavicongenerator.net and put them in the same folder as `index.html`.
+
+---
+
+## Changing things later
+
+| I want to... | Do this |
+|--------------|---------|
+| Change website text or design | Edit `index.html`, then upload it again to GitHub (click the file > pencil icon > paste > Commit) |
+| Change a business setting, price or plan | Use the admin page, no code needed |
+| Change backend code (`.gs`) | Paste the new code in Apps Script, then Deploy > Manage deployments > pencil > **New version** > Deploy |
+| Change the `/exec` link | You should not need to. If you make a brand new deployment the link changes and you must redo Part 5 |
+| Add more trading accounts | Admin > Account pool > Import accounts (CSV) |
+
+---
+
+## Troubleshooting
+
+| Problem | What to check |
+|---------|---------------|
+| Site says it cannot reach the server | The `/exec` link in `index.html` is missing or wrong. It must end in `/exec`. Open the link directly; you should see `"status":"up"` |
+| Opening the `/exec` link asks me to log in to Google | "Who has access" must be `Anyone`. Fix under Deploy > Manage deployments |
+| Sign-up says "The system is not set up yet" | Add `BOOTSTRAP_OPEN` = `true` (Part 3), sign up, then delete it |
+| Site shows "Launching soon" | Nobody has signed up yet. Do Part 7 |
+| I changed code but nothing changed | You must deploy a **New version** (Part 4 note) |
+| Domain does not open | DNS can take up to a few hours. Check the 4 A records and CNAME. On the GitHub Pages screen it shows if the DNS check passed |
+| Padlock/HTTPS missing | Tick **Enforce HTTPS** on the GitHub Pages screen once available |
+| Card payment does not show | The gateway is off by default. Turn it on in Settings and check its secret key in Script Properties |
+| No account issued after payment | The Account pool has none left of that size. Import more |
+| Emails do not arrive | Check spam; check Google's daily email limit; open Apps Script > Executions to see errors |
+| Any error I do not understand | Apps Script > left menu **Executions** shows every run and its error message |
+
+---
 
 ## Safety rules
 
-- **Never share** your Script Properties or secret keys.
-- **Never upload `.csv` files** with trading passwords to GitHub. The `.gitignore` file blocks this, so do not remove it.
-- Keep the "Raven Prop Data" Google Sheet **private**. It holds sensitive information.
-
-## If something goes wrong
-
-| Problem | What to check |
-|---------|--------------|
-| Site says "Could not reach the server" | The link in Step 4 is wrong or was not saved. Make sure it ends in `/exec`. |
-| Sign-up says "The system is not set up yet" | `BOOTSTRAP_OPEN` is not set to `true` (Step 2). |
-| Site says "Launching soon" | Nobody has signed up yet. Do Step 6. |
-| You changed the code but nothing changed | Publish a **New version** (note in Step 3). |
-| Domain does not work | DNS changes can take up to a few hours. |
+- **Never share** Script Properties, the `/exec` link with the secret, `EQUITY_SECRET`, or the pool CSV.
+- **Never upload** `.csv` files with trading passwords to GitHub.
+- Keep the "Raven Prop Data" Sheet **private**.
+- Use a strong, unique password for the owner account and for your Google account. Turn on 2-step verification on Google and GitHub.
+- The rules a trader accepted when they bought stay with their challenge. Do not change a plan in a way that surprises existing customers.

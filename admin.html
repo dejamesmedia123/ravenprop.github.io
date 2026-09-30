@@ -1,430 +1,66 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>Raven Admin</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>tailwind.config={theme:{extend:{colors:{rv:{black:'#07090D',surface:'#0D1118',elev:'#131923',border:'#202936',white:'#F5F7FA',muted:'#8B95A5',blue:'#5B8CFF',cyan:'#4FD1C5',ok:'#22C55E',warn:'#F59E0B',bad:'#EF4444',gold:'#D6B36A'}}}}}</script>
-<style>body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:15px;line-height:24px;font-variant-numeric:tabular-nums}th{white-space:nowrap;font-size:11px;line-height:16px;font-weight:500;letter-spacing:.04em;text-transform:uppercase}button,select,input,textarea{min-height:44px}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #5B8CFF;outline-offset:2px}.brand-mark{width:28px;height:28px}</style>
-</head>
-<body class="bg-rv-black text-rv-white">
-<!-- Part 16. Host on a non-obvious path (rename this file before deploying). Same api() contract as index.html. -->
-<div id="app"></div>
-<div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50"></div>
-<script>
-const API_URL = 'PASTE_APPS_SCRIPT_WEB_APP_URL_HERE';
-const TK = 'raven_admin_token';
-const getToken = () => { try { return sessionStorage.getItem(TK) || ''; } catch (e) { return ''; } };
-const setToken = t => { try { t ? sessionStorage.setItem(TK, t) : sessionStorage.removeItem(TK); } catch (e) {} };
-
-async function api(action, payload) {
-  const ctrl = new AbortController(), timer = setTimeout(() => ctrl.abort(), 30000);
-  try {
-    const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({ action, token: getToken(), payload: payload || {} }), signal: ctrl.signal });
-    const j = await res.json();
-    if (j && j.code === 'UNAUTHENTICATED') { setToken(''); state.user = null; render(); }
-    return j;
-  } catch (e) { return { ok: false, error: 'Could not reach the server.', code: 'NETWORK' }; }
-  finally { clearTimeout(timer); }
-}
-
-const $ = s => document.querySelector(s);
-const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const usd = n => '$' + Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 });
-const inp = 'w-full rounded-2xl bg-rv-surface border border-rv-border px-2 py-1.5 ';
-const btn = 'rounded-xl bg-rv-blue text-white font-semibold px-4 hover:bg-rv-blue/90';
-const btn2 = 'rounded-xl bg-rv-surface border border-rv-border px-4 hover:bg-rv-elev';
-
-const SCREENS = [['overview', 'Overview'], ['challenges', 'Challenges'], ['crypto', 'Crypto orders'], ['payouts', 'Payouts'],
-  ['payments', 'Payments'], ['money', 'Payment setup'], ['plans', 'Challenge plans'], ['pool', 'Account pool'], ['users', 'Users'], ['affiliates', 'Affiliates'], ['breaches', 'Breach log'], ['support', 'Support'], ['settings', 'Settings'], ['audit', 'Audit log']];
-const state = { user: null, screen: 'overview', busy: false };
-
-// ---------- helpers ----------
-function toast(msg, bad) {
-  const t = document.createElement('div');
-  t.className = 'fixed bottom-4 right-4 z-50 rounded px-4 py-2 ' + (bad ? 'bg-rv-bad' : 'bg-rv-ok');
-  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 4000);
-}
-// Modal form. fields: [{k,label,type:'text'|'number'|'checkbox'|'textarea',req}] -> resolves to object or null
-function ask(title, fields) {
-  return new Promise(res => {
-    const m = $('#modal');
-    m.innerHTML = `<div class="bg-rv-surface border border-rv-border rounded-2xl p-5 w-full max-w-md space-y-3" role="dialog" aria-label="${esc(title)}">
-      <h3 class="text-lg font-semibold text-base">${esc(title)}</h3>
-      ${fields.map(f => f.type === 'checkbox'
-        ? `<label class="flex gap-2 items-center"><input type="checkbox" data-k="${f.k}" ${f.v ? 'checked' : ''}> ${esc(f.label)}</label>`
-        : `<label class="block"><span class="font-medium">${esc(f.label)}</span>${f.help ? `<span class="block text-xs text-rv-muted">${esc(f.help)}</span>` : ''}${f.type === 'textarea'
-          ? `<textarea data-k="${f.k}" rows="4" class="${inp}">${esc(f.v)}</textarea>`
-          : `<input data-k="${f.k}" type="${f.type || 'text'}" step="any" value="${esc(f.v)}" class="${inp}">`}</label>`).join('')}
-      <div class="flex gap-2 justify-end"><button id="mc" class="${btn2}">Cancel</button><button id="mo" class="${btn}">Confirm</button></div></div>`;
-    m.classList.remove('hidden');
-    const done = v => { m.classList.add('hidden'); m.innerHTML = ''; res(v); };
-    $('#mc').onclick = () => done(null);
-    $('#mo').onclick = () => {
-      const o = {};
-      m.querySelectorAll('[data-k]').forEach(el => { o[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value.trim(); });
-      done(o);
-    };
-    const first = m.querySelector('[data-k]'); if (first) first.focus();
-  });
-}
-async function call(action, payload, okMsg) {
-  const r = await api(action, payload);
-  if (!r.ok) { toast(r.error || 'Request failed', true); return null; }
-  if (okMsg) toast(okMsg);
-  return r.data || {};
-}
-function table(rows, opts) {
-  opts = opts || {};
-  if (!rows || !rows.length) return '<p class="text-rv-muted py-6">Nothing here.</p>';
-  const cols = (opts.cols || Object.keys(rows[0]).filter(k => rows[0][k] === null || typeof rows[0][k] !== 'object')).slice(0, opts.max || 9);
-  return `<div class="overflow-x-auto rounded-2xl bg-rv-surface border border-rv-border px-4"><table class="w-full text-left"><thead class="text-rv-muted border-b border-rv-border"><tr>
-    ${cols.map(c => `<th class="py-2 pr-4 font-medium">${esc(c.replace(/_/g, ' '))}</th>`).join('')}${opts.actions ? '<th></th>' : ''}</tr></thead><tbody>
-    ${rows.map((r, i) => `<tr class="border-b border-rv-border/50 hover:bg-rv-surface/60">${cols.map(c => `<td class="py-2 pr-4 align-top">${c === 'status' || c === 'kyc_status' ? badge(r[c]) : esc(r[c])}</td>`).join('')}
-    ${opts.actions ? `<td class="py-2 whitespace-nowrap text-right">${opts.actions(r, i)}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
-}
-const BADGE = { active: ['●', 'ACTIVE', 'ok'], Active: ['●', 'ACTIVE', 'ok'], Passed: ['✓', 'PASSED', 'ok'], passed: ['✓', 'PASSED', 'ok'], Funded: ['◆', 'FUNDED', 'gold'], Breached: ['✕', 'BREACHED', 'bad'],
-  Paid: ['✓', 'PAID', 'ok'], paid: ['✓', 'PAID', 'ok'], confirmed: ['✓', 'CONFIRMED', 'ok'], challenge_created: ['✓', 'ACCOUNT ISSUED', 'ok'], Verified: ['✓', 'VERIFIED', 'ok'], Available: ['●', 'AVAILABLE', 'ok'],
-  Submitted: ['⏱', 'UNDER REVIEW', 'warn'], 'Under Review': ['⏱', 'UNDER REVIEW', 'warn'], awaiting_confirmation: ['⏱', 'AWAITING CONFIRMATION', 'warn'], awaiting_payment: ['⏱', 'AWAITING PAYMENT', 'warn'], pending: ['⏱', 'PENDING', 'warn'], requested: ['⏱', 'REQUESTED', 'warn'], Assigned: ['●', 'ASSIGNED', 'warn'], 'Action Required': ['!', 'ACTION REQUIRED', 'warn'],
-  Approved: ['✓', 'APPROVED', 'ok'], approved: ['✓', 'APPROVED', 'ok'], Rejected: ['✕', 'REJECTED', 'bad'], rejected: ['✕', 'REJECTED', 'bad'], failed: ['✕', 'FAILED', 'bad'], expired: ['✕', 'EXPIRED', 'bad'], refunded: ['↩', 'REFUNDED', 'warn'],
-  banned: ['✕', 'BANNED', 'bad'], restricted: ['!', 'RESTRICTED', 'warn'], suspended: ['!', 'SUSPENDED', 'warn'], Used: ['—', 'USED', 'muted'], disabled: ['—', 'DISABLED', 'muted'], inactive: ['—', 'INACTIVE', 'muted'] };
-const badge = v => { const b = BADGE[v]; return b ? `<span class="inline-flex items-center gap-1 rounded-full border border-rv-${b[2] === 'muted' ? 'border' : b[2]} text-rv-${b[2]} px-2 text-xs font-semibold"><span aria-hidden="true">${b[0]}</span>${b[1]}</span>` : esc(v); };
-const stockTable = (st, low) => { if (!Array.isArray(st) || !st.length) return '<p class="text-rv-muted">No accounts imported yet.</p>';
-  const lows = (low || []).map(x => '$' + Number(x.size).toLocaleString() + ' (' + x.available + ' left)');
-  const rows = st.map(x => ({ size: '$' + Number(x.size).toLocaleString(), available: x.available, assigned: x.assigned, used: x.used, stock: x.low ? '! LOW' : 'OK' }));
-  return `<div class="rounded-2xl bg-rv-surface border border-rv-border p-4">${lows.length ? '<p class="text-rv-warn font-semibold mb-2"><span aria-hidden="true">!</span> LOW STOCK: ' + esc(lows.join(', ')) + '</p>' : ''}${table(rows)}</div>`; };
-const firstArray = d => { for (const k in d) if (Array.isArray(d[k])) return d[k]; return []; };
-const link = (label, fn, cls) => `<button class="${cls || 'text-rv-blue hover:underline'} mr-3" data-do="${fn}">${label}</button>`;
-// event delegation: buttons carry data-do + data-i; handlers registered in H
-const H = {};
-document.addEventListener('click', e => {
-  const b = e.target.closest('[data-do]'); if (!b) return;
-  const fn = H[b.dataset.do]; if (fn) fn(b.dataset.i, b);
-});
-
-// ---------- shell ----------
-function render() {
-  if (!state.user) {
-    $('#app').innerHTML = `<main class="min-h-screen flex items-center justify-center p-6"><div class="w-full max-w-sm space-y-3">
+<!DOCTYPE html> <html lang="en"> <head> <meta charset="utf-8"> <meta name="viewport" content="width=device-width, initial-scale=1"> <meta name="robots" content="noindex, nofollow"> <title>Raven Admin</title> <script src="https://cdn.tailwindcss.com"></script> <script>tailwind.config={theme:{extend:{colors:{rv:{black:"#07090D",surface:"#0D1118",elev:"#131923",border:"#202936",white:"#F5F7FA",muted:"#8B95A5",blue:"#5B8CFF",cyan:"#4FD1C5",ok:"#22C55E",warn:"#F59E0B",bad:"#EF4444",gold:"#D6B36A"}}}}};</script> <style>body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:24px;font-variant-numeric:tabular-nums}th{white-space:nowrap;font-size:11px;line-height:16px;font-weight:500;letter-spacing:.04em;text-transform:uppercase}button,select,input,textarea{min-height:44px}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #5B8CFF;outline-offset:2px}.brand-mark{width:28px;height:28px}</style> <style id="ux">:root{--ux-acc:#5B8CFF;--ux-ring:rgba(91,140,255,.35);--ux-sel:rgba(91,140,255,.5);--ux-sb:#202936}html{scroll-behavior:smooth;color-scheme:dark;-webkit-text-size-adjust:100%}*{-webkit-tap-highlight-color:transparent}body{text-rendering:optimizeLegibility;-webkit-font-smoothing:antialiased}button,a,input,select,textarea{transition:background-color .18s,border-color .18s,box-shadow .18s,transform .12s,filter .18s,opacity .18s}button:not(:disabled):active{transform:scale(.97)}button:disabled{opacity:.55;cursor:not-allowed}button:not(:disabled){cursor:pointer}input:not([type=checkbox]):not([type=radio]):focus,select:focus,textarea:focus{box-shadow:0 0 0 3px var(--ux-ring)}input:invalid:not(:placeholder-shown):not(:focus){border-color:#f87171}::selection{background:var(--ux-sel);color:#fff}*{scrollbar-width:thin;scrollbar-color:var(--ux-sb) transparent}.ux-skip{position:fixed;left:12px;top:-60px;z-index:100;padding:10px 16px;border-radius:10px;background:var(--ux-acc);color:#000;font-weight:600;transition:top .2s}.ux-skip:focus{top:12px}#ux-prog{position:fixed;top:0;left:0;height:3px;width:0;z-index:99;background:var(--ux-acc);box-shadow:0 0 10px var(--ux-acc);transition:width .1s linear;pointer-events:none}#ux-top{position:fixed;right:16px;bottom:88px;z-index:60;width:44px;height:44px;border-radius:50%;border:1px solid var(--ux-ring);background:#140e0ad9;color:var(--ux-acc);font-size:20px;display:grid;place-items:center;opacity:0;visibility:hidden;transform:translateY(8px);backdrop-filter:blur(10px)}#ux-top.on{opacity:1;visibility:visible;transform:none}#ux-off{position:fixed;left:0;right:0;top:0;z-index:98;padding:8px 12px;text-align:center;font-size:13px;font-weight:600;background:#f87171;color:#000;transform:translateY(-100%);transition:transform .25s}#ux-off.on{transform:none}.ux-eyew{position:relative;display:block}.ux-eyew input{padding-right:64px}.ux-eye{position:absolute;right:6px;top:50%;transform:translateY(-50%)!important;min-height:32px!important;padding:0 10px;border-radius:8px;font-size:12px;font-weight:600;color:var(--ux-acc);background:transparent}@keyframes uxIn{0%{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}@media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}#app>*{animation:uxIn .3s ease both}tbody tr{transition:background-color .15s}tbody tr:hover{background:#5b8cff14}tbody tr:nth-child(2n){background:#ffffff05}thead th{position:sticky;top:0;background:#0d1118;z-index:2}table{border-collapse:separate;border-spacing:0}td,th{padding-top:10px;padding-bottom:10px}nav[aria-label="Admin sections"] button,nav[aria-label="Admin sections"] a{border-radius:10px}nav[aria-label="Admin sections"] button:hover,nav[aria-label="Admin sections"] a:hover{background:#5b8cff1f}input,select,textarea{border-radius:10px}#ux-top{bottom:24px}</style><meta name="theme-color" content="#07090D"></head> <body class="bg-rv-black text-rv-white"> <div id="app"></div> <div id="modal" class="hidden fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50"></div> <script>const API_URL="https://script.google.com/macros/s/AKfycbzn1JQuRpODk10tO5P07NPY027_RUA77fujyHOgltTpkpqEOu8RxSxzU3EYibH0fWw9zA/exec",TK="raven_admin_token",getToken=()=>{try{return sessionStorage.getItem(TK)||""}catch{return""}},setToken=e=>{try{e?sessionStorage.setItem(TK,e):sessionStorage.removeItem(TK)}catch{}};async function api(e,t){const a=new AbortController,s=setTimeout(()=>a.abort(),3e4);try{const r=await(await fetch(API_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:e,token:getToken(),payload:t||{}}),signal:a.signal})).json();return r&&r.code==="UNAUTHENTICATED"&&(setToken(""),state.user=null,render()),r}catch{return{ok:!1,error:"Could not reach the server.",code:"NETWORK"}}finally{clearTimeout(s)}}const $=e=>document.querySelector(e),esc=e=>String(e==null?"":e).replace(/[&<>"']/g,t=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[t]),usd=e=>"$"+Number(e||0).toLocaleString(void 0,{maximumFractionDigits:2}),inp="w-full rounded-2xl bg-rv-surface border border-rv-border px-2 py-1.5 ",btn="rounded-xl bg-rv-blue text-white font-semibold px-4 hover:bg-rv-blue/90",btn2="rounded-xl bg-rv-surface border border-rv-border px-4 hover:bg-rv-elev",SCREENS=[["overview","Overview"],["challenges","Challenges"],["crypto","Crypto orders"],["payouts","Payouts"],["payments","Payments"],["money","Payment setup"],["plans","Challenge plans"],["pool","Account pool"],["users","Users"],["affiliates","Affiliates"],["breaches","Breach log"],["support","Support"],["settings","Settings"],["audit","Audit log"]],state={user:null,screen:"overview",busy:!1};function toast(e,t){const a=document.createElement("div");a.className="fixed bottom-4 right-4 z-50 rounded px-4 py-2 "+(t?"bg-rv-bad":"bg-rv-ok"),a.textContent=e,document.body.appendChild(a),setTimeout(()=>a.remove(),4e3)}function ask(e,t){return new Promise(a=>{const s=$("#modal");s.innerHTML=`<div class="bg-rv-surface border border-rv-border rounded-2xl p-5 w-full max-w-md space-y-3" role="dialog" aria-label="${esc(e)}">
+      <h3 class="text-lg font-semibold text-base">${esc(e)}</h3>
+      ${t.map(n=>n.type==="checkbox"?`<label class="flex gap-2 items-center"><input type="checkbox" data-k="${n.k}" ${n.v?"checked":""}> ${esc(n.label)}</label>`:`<label class="block"><span class="font-medium">${esc(n.label)}</span>${n.help?`<span class="block text-xs text-rv-muted">${esc(n.help)}</span>`:""}${n.type==="textarea"?`<textarea data-k="${n.k}" rows="4" class="${inp}">${esc(n.v)}</textarea>`:`<input data-k="${n.k}" type="${n.type||"text"}" step="any" value="${esc(n.v)}" class="${inp}">`}</label>`).join("")}
+      <div class="flex gap-2 justify-end"><button id="mc" class="${btn2}">Cancel</button><button id="mo" class="${btn}">Confirm</button></div></div>`,s.classList.remove("hidden");const o=n=>{s.classList.add("hidden"),s.innerHTML="",a(n)};$("#mc").onclick=()=>o(null),$("#mo").onclick=()=>{const n={};s.querySelectorAll("[data-k]").forEach(d=>{n[d.dataset.k]=d.type==="checkbox"?d.checked:d.value.trim()}),o(n)};const r=s.querySelector("[data-k]");r&&r.focus()})}async function call(e,t,a){const s=await api(e,t);return s.ok?(a&&toast(a),s.data||{}):(toast(s.error||"Request failed",!0),null)}function table(e,t){if(t=t||{},!e||!e.length)return'<p class="text-rv-muted py-6">Nothing here.</p>';const a=(t.cols||Object.keys(e[0]).filter(s=>e[0][s]===null||typeof e[0][s]!="object")).slice(0,t.max||9);return`<div class="overflow-x-auto rounded-2xl bg-rv-surface border border-rv-border px-4"><table class="w-full text-left"><thead class="text-rv-muted border-b border-rv-border"><tr>
+    ${a.map(s=>`<th class="py-2 pr-4 font-medium">${esc(s.replace(/_/g," "))}</th>`).join("")}${t.actions?"<th></th>":""}</tr></thead><tbody>
+    ${e.map((s,o)=>`<tr class="border-b border-rv-border/50 hover:bg-rv-surface/60">${a.map(r=>`<td class="py-2 pr-4 align-top">${r==="status"||r==="kyc_status"?badge(s[r]):esc(s[r])}</td>`).join("")}
+    ${t.actions?`<td class="py-2 whitespace-nowrap text-right">${t.actions(s,o)}</td>`:""}</tr>`).join("")}</tbody></table></div>`}const BADGE={active:["\u25CF","ACTIVE","ok"],Active:["\u25CF","ACTIVE","ok"],Passed:["\u2713","PASSED","ok"],passed:["\u2713","PASSED","ok"],Funded:["\u25C6","FUNDED","gold"],Breached:["\u2715","BREACHED","bad"],Paid:["\u2713","PAID","ok"],paid:["\u2713","PAID","ok"],confirmed:["\u2713","CONFIRMED","ok"],challenge_created:["\u2713","ACCOUNT ISSUED","ok"],Verified:["\u2713","VERIFIED","ok"],Available:["\u25CF","AVAILABLE","ok"],Submitted:["\u23F1","UNDER REVIEW","warn"],"Under Review":["\u23F1","UNDER REVIEW","warn"],awaiting_confirmation:["\u23F1","AWAITING CONFIRMATION","warn"],awaiting_payment:["\u23F1","AWAITING PAYMENT","warn"],pending:["\u23F1","PENDING","warn"],requested:["\u23F1","REQUESTED","warn"],Assigned:["\u25CF","ASSIGNED","warn"],"Action Required":["!","ACTION REQUIRED","warn"],Approved:["\u2713","APPROVED","ok"],approved:["\u2713","APPROVED","ok"],Rejected:["\u2715","REJECTED","bad"],rejected:["\u2715","REJECTED","bad"],failed:["\u2715","FAILED","bad"],expired:["\u2715","EXPIRED","bad"],refunded:["\u21A9","REFUNDED","warn"],banned:["\u2715","BANNED","bad"],restricted:["!","RESTRICTED","warn"],suspended:["!","SUSPENDED","warn"],Used:["\u2014","USED","muted"],disabled:["\u2014","DISABLED","muted"],inactive:["\u2014","INACTIVE","muted"]},badge=e=>{const t=BADGE[e];return t?`<span class="inline-flex items-center gap-1 rounded-full border border-rv-${t[2]==="muted"?"border":t[2]} text-rv-${t[2]} px-2 text-xs font-semibold"><span aria-hidden="true">${t[0]}</span>${t[1]}</span>`:esc(e)},stockTable=(e,t)=>{if(!Array.isArray(e)||!e.length)return'<p class="text-rv-muted">No accounts imported yet.</p>';const a=(t||[]).map(o=>"$"+Number(o.size).toLocaleString()+" ("+o.available+" left)"),s=e.map(o=>({size:"$"+Number(o.size).toLocaleString(),available:o.available,assigned:o.assigned,used:o.used,stock:o.low?"! LOW":"OK"}));return`<div class="rounded-2xl bg-rv-surface border border-rv-border p-4">${a.length?'<p class="text-rv-warn font-semibold mb-2"><span aria-hidden="true">!</span> LOW STOCK: '+esc(a.join(", "))+"</p>":""}${table(s)}</div>`},firstArray=e=>{for(const t in e)if(Array.isArray(e[t]))return e[t];return[]},link=(e,t,a)=>`<button class="${a||"text-rv-blue hover:underline"} mr-3" data-do="${t}">${e}</button>`,H={};document.addEventListener("click",e=>{const t=e.target.closest("[data-do]");if(!t)return;const a=H[t.dataset.do];a&&a(t.dataset.i,t)});function render(){if(!state.user){$("#app").innerHTML=`<main class="min-h-screen flex items-center justify-center p-6"><div class="w-full max-w-sm space-y-3">
       <div class="flex items-center gap-2"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22 L14 6 L18 12 L28 8 L20 18 L22 26 L12 20 Z" fill="#5B8CFF"/></svg><h1 class="text-2xl font-bold">Raven Admin</h1></div>
       <label class="block">Email<input id="em" type="email" autocomplete="username" class="${inp}"></label>
       <label class="block">Password<input id="pw" type="password" autocomplete="current-password" class="${inp}"></label>
-      <button id="li" class="${btn} w-full">Sign in</button></div></main>`;
-    const go = async () => {
-      const r = await api('auth.login', { email: $('#em').value, password: $('#pw').value });
-      if (!r.ok) return toast(r.error || 'Login failed', true);
-      const role = r.data.user && r.data.user.role;
-      if (role !== 'admin' && role !== 'owner') { await api('auth.logout', {}); setToken(''); return toast('This account is not an admin.', true); }
-      setToken(r.data.token); state.user = r.data.user; render();
-    };
-    $('#li').onclick = go; $('#pw').onkeydown = e => { if (e.key === 'Enter') go(); };
-    return;
-  }
-  $('#app').innerHTML = `<div class="flex min-h-screen">
+      <button id="li" class="${btn} w-full">Sign in</button></div></main>`;const e=async()=>{const t=await api("auth.login",{email:$("#em").value,password:$("#pw").value});if(!t.ok)return toast(t.error||"Login failed",!0);const a=t.data.user&&t.data.user.role;if(a!=="admin"&&a!=="owner")return await api("auth.logout",{}),setToken(""),toast("This account is not an admin.",!0);setToken(t.data.token),state.user=t.data.user,render()};$("#li").onclick=e,$("#pw").onkeydown=t=>{t.key==="Enter"&&e()};return}$("#app").innerHTML=`<div class="flex min-h-screen">
     <nav class="w-52 shrink-0 bg-rv-surface border-r border-rv-border p-3 space-y-1" aria-label="Admin sections">
       <div class="flex items-center gap-2 font-bold px-2 py-3"><svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M4 22 L14 6 L18 12 L28 8 L20 18 L22 26 L12 20 Z" fill="#5B8CFF"/></svg> RAVEN ADMIN</div>
-      ${SCREENS.map(s => `<button data-do="nav" data-i="${s[0]}" class="block w-full text-left px-3 min-h-[44px] rounded-xl ${state.screen === s[0] ? 'bg-rv-blue text-white font-medium' : 'hover:bg-rv-elev'}">${s[1]}</button>`).join('')}
+      ${SCREENS.map(e=>`<button data-do="nav" data-i="${e[0]}" class="block w-full text-left px-3 min-h-[44px] rounded-xl ${state.screen===e[0]?"bg-rv-blue text-white font-medium":"hover:bg-rv-elev"}">${e[1]}</button>`).join("")}
       <div class="pt-4 px-2 text-xs text-rv-muted">${esc(state.user.email)} (${esc(state.user.role)})</div>
       <button data-do="logout" class="block w-full text-left rounded px-2 py-1.5 hover:bg-rv-elev text-rv-white">Sign out</button></nav>
-    <main class="flex-1 p-6 overflow-x-auto"><h2 class="text-2xl font-bold mb-4">${esc((SCREENS.find(s => s[0] === state.screen) || [])[1])}</h2><div id="view">Loading...</div></main></div>`;
-  (V[state.screen] || V.overview)();
-}
-H.nav = s => { state.screen = s; render(); };
-H.logout = async () => { await api('auth.logout', {}); setToken(''); state.user = null; render(); };
-const view = html => { const v = $('#view'); if (v) v.innerHTML = html; };
-const filterBar = (fields) => `<div class="flex flex-wrap gap-2 mb-4">${fields.join('')}</div>`;
-
-// ---------- screens ----------
-const V = {};
-V.overview = async () => {
-  const d = await call('admin.overview'); if (!d) return view('<p class="text-rv-bad">Could not load.</p>');
-  const card = (t, v) => `<div class="rounded-2xl bg-rv-surface border border-rv-border p-4"><div class="text-rv-muted">${t}</div><div class="text-xl font-semibold mt-1">${v}</div></div>`;
-  view(`<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-    ${card('Revenue today', usd(d.revenue.today_usd))}${card('Last 7 days', usd(d.revenue.last_7d_usd))}${card('Last 30 days', usd(d.revenue.last_30d_usd))}${card('Active challenges', d.challenges.active)}
-    ${card('Open payouts', d.payouts.open + ' (' + usd(d.payouts.open_usd) + ')')}${card('Paid out', usd(d.payouts.paid_usd))}${card('Breaches (7d)', d.breaches_last_7d)}${card('Users', d.users.total + ' (+' + d.users.new_last_7d + ' this week)')}</div>
+    <main class="flex-1 p-6 overflow-x-auto"><h2 class="text-2xl font-bold mb-4">${esc((SCREENS.find(e=>e[0]===state.screen)||[])[1])}</h2><div id="view">Loading...</div></main></div>`,(V[state.screen]||V.overview)()}H.nav=e=>{state.screen=e,render()},H.logout=async()=>{await api("auth.logout",{}),setToken(""),state.user=null,render()};const view=e=>{const t=$("#view");t&&(t.innerHTML=e)},filterBar=e=>`<div class="flex flex-wrap gap-2 mb-4">${e.join("")}</div>`,V={};V.overview=async()=>{const e=await call("admin.overview");if(!e)return view('<p class="text-rv-bad">Could not load.</p>');const t=(a,s)=>`<div class="rounded-2xl bg-rv-surface border border-rv-border p-4"><div class="text-rv-muted">${a}</div><div class="text-xl font-semibold mt-1">${s}</div></div>`;view(`<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+    ${t("Revenue today",usd(e.revenue.today_usd))}${t("Last 7 days",usd(e.revenue.last_7d_usd))}${t("Last 30 days",usd(e.revenue.last_30d_usd))}${t("Active challenges",e.challenges.active)}
+    ${t("Open payouts",e.payouts.open+" ("+usd(e.payouts.open_usd)+")")}${t("Paid out",usd(e.payouts.paid_usd))}${t("Breaches (7d)",e.breaches_last_7d)}${t("Users",e.users.total+" (+"+e.users.new_last_7d+" this week)")}</div>
     <h3 class="text-lg font-semibold mb-2">Needs attention</h3>
-    ${(d.attention || []).length ? (d.attention.map(a => `<button data-do="nav" data-i="${esc(a.screen === 'affiliates' ? 'users' : a.screen)}" class="block w-full text-left rounded-2xl bg-rv-surface border border-rv-border px-3 py-2 mb-2 hover:border-rv-blue">${esc(a.label)}: <b>${a.count}</b></button>`).join('')) : '<p class="text-rv-muted">All clear.</p>'}
-    <h3 class="text-lg font-semibold mt-6 mb-2">Pool stock by size</h3>${stockTable(d.pool.stock, d.pool.low)}`);
-};
-
-let chFilter = { stage: '', status: '', q: '' }, chRows = [];
-V.challenges = async () => {
-  const d = await call('admin.challenges.list', chFilter); if (!d) return;
-  chRows = d.challenges || [];
-  const sel = (id, opts, cur) => `<select id="${id}" class="${inp} !w-auto"><option value="">All</option>${opts.map(o => `<option ${o === cur ? 'selected' : ''}>${o}</option>`).join('')}</select>`;
-  view(eqCard() + filterBar([sel('fs', ['Phase 1', 'Phase 2', 'Funded'], chFilter.stage), sel('ft', ['Active', 'Passed', 'Breached'], chFilter.status),
-    `<input id="fq" placeholder="Email, name, login or ID" value="${esc(chFilter.q)}" class="${inp} !w-64"><button data-do="chApply" class="${btn}">Filter</button>`]) +
-    `<p class="text-rv-muted mb-2">${d.total_matching} matching</p>` +
-    table(chRows, { max: 8, actions: (r, i) => link('Open', 'chOpen', '') .replace('data-do', `data-i="${i}" data-do`) }));
-};
-H.chApply = () => { chFilter = { stage: $('#fs').value, status: $('#ft').value, q: $('#fq').value.trim() }; V.challenges(); };
-H.chOpen = async i => {
-  const d = await call('admin.challenges.list', { challenge_id: chRows[i].challenge_id }); if (!d) return;
-  const c = d.challenge, id = c.challenge_id;
-  view(`<button data-do="nav" data-i="challenges" class="${btn2} mb-4">Back</button>
-    <div class="flex gap-2 mb-4"><button class="${btn}" data-do="chDecide" data-i="pass|${id}">Pass stage</button>
-    <button class="rounded-xl bg-rv-bad text-white font-semibold px-4" data-do="chDecide" data-i="breach|${id}">Breach</button>
-    <button class="${btn2}" data-do="chDecide" data-i="activate|${id}">Activate next account</button></div>
-    <h3 class="text-lg font-semibold mb-2">Challenge</h3>${table([c])}
-    <h3 class="text-lg font-semibold mt-5 mb-2">Accounts</h3>${table(d.accounts)}
-    <h3 class="text-lg font-semibold mt-5 mb-2">Breaches</h3>${table(d.breaches)}
-    <h3 class="text-lg font-semibold mt-5 mb-2">Payments</h3>${table(d.payments)}
-    <h3 class="text-lg font-semibold mt-5 mb-2">Payouts</h3>${table(d.payouts)}`);
-};
-H.chDecide = async v => {
-  const [decision, id] = v.split('|');
-  const f = decision === 'activate' ? {} : await ask(decision === 'pass' ? 'Pass this stage' : 'Breach this challenge',
-    decision === 'pass' ? [{ k: 'reason', label: 'Reason (required)' }]
-      : [{ k: 'reason', label: 'Reason (required)' }, { k: 'rule', label: 'Rule (e.g. max_loss, daily_loss)' }, { k: 'actual_value', label: 'Actual value', type: 'number' },
-        { k: 'allowed_value', label: 'Allowed value', type: 'number' }, { k: 'evidence', label: 'Evidence reference' }]);
-  if (!f) return;
-  Object.keys(f).forEach(k => f[k] === '' && delete f[k]);
-  const d = await call('admin.challenge.review', Object.assign({ challenge_id: id, decision }, f), 'Done');
-  if (d) V.challenges();
-};
-
-
-// ----- Part 17: equity upload (CSV or one typed entry) inside Challenge Review -----
-const eqCard = () => `<div class="rounded-2xl bg-rv-surface border border-rv-border p-4 mb-5"><h3 class="text-lg font-semibold mb-1">Equity upload</h3>
+    ${(e.attention||[]).length?e.attention.map(a=>`<button data-do="nav" data-i="${esc(a.screen==="affiliates"?"users":a.screen)}" class="block w-full text-left rounded-2xl bg-rv-surface border border-rv-border px-3 py-2 mb-2 hover:border-rv-blue">${esc(a.label)}: <b>${a.count}</b></button>`).join(""):'<p class="text-rv-muted">All clear.</p>'}
+    <h3 class="text-lg font-semibold mt-6 mb-2">Pool stock by size</h3>${stockTable(e.pool.stock,e.pool.low)}`)};let chFilter={stage:"",status:"",q:""},chRows=[];V.challenges=async()=>{const e=await call("admin.challenges.list",chFilter);if(!e)return;chRows=e.challenges||[];const t=(a,s,o)=>`<select id="${a}" class="${inp} !w-auto"><option value="">All</option>${s.map(r=>`<option ${r===o?"selected":""}>${r}</option>`).join("")}</select>`;view(eqCard()+filterBar([t("fs",["Phase 1","Phase 2","Funded"],chFilter.stage),t("ft",["Active","Passed","Breached"],chFilter.status),`<input id="fq" placeholder="Email, name, login or ID" value="${esc(chFilter.q)}" class="${inp} !w-64"><button data-do="chApply" class="${btn}">Filter</button>`])+`<p class="text-rv-muted mb-2">${e.total_matching} matching</p>`+table(chRows,{max:8,actions:(a,s)=>link("Open","chOpen","").replace("data-do",`data-i="${s}" data-do`)}))},H.chApply=()=>{chFilter={stage:$("#fs").value,status:$("#ft").value,q:$("#fq").value.trim()},V.challenges()},H.chOpen=async e=>{const t=await call("admin.challenges.list",{challenge_id:chRows[e].challenge_id});if(!t)return;const a=t.challenge,s=a.challenge_id;view(`<button data-do="nav" data-i="challenges" class="${btn2} mb-4">Back</button>
+    <div class="flex gap-2 mb-4"><button class="${btn}" data-do="chDecide" data-i="pass|${s}">Pass stage</button>
+    <button class="rounded-xl bg-rv-bad text-white font-semibold px-4" data-do="chDecide" data-i="breach|${s}">Breach</button>
+    <button class="${btn2}" data-do="chDecide" data-i="activate|${s}">Activate next account</button></div>
+    <h3 class="text-lg font-semibold mb-2">Challenge</h3>${table([a])}
+    <h3 class="text-lg font-semibold mt-5 mb-2">Accounts</h3>${table(t.accounts)}
+    <h3 class="text-lg font-semibold mt-5 mb-2">Breaches</h3>${table(t.breaches)}
+    <h3 class="text-lg font-semibold mt-5 mb-2">Payments</h3>${table(t.payments)}
+    <h3 class="text-lg font-semibold mt-5 mb-2">Payouts</h3>${table(t.payouts)}`)},H.chDecide=async e=>{const[t,a]=e.split("|"),s=t==="activate"?{}:await ask(t==="pass"?"Pass this stage":"Breach this challenge",t==="pass"?[{k:"reason",label:"Reason (required)"}]:[{k:"reason",label:"Reason (required)"},{k:"rule",label:"Rule (e.g. max_loss, daily_loss)"},{k:"actual_value",label:"Actual value",type:"number"},{k:"allowed_value",label:"Allowed value",type:"number"},{k:"evidence",label:"Evidence reference"}]);if(!s)return;Object.keys(s).forEach(r=>s[r]===""&&delete s[r]),await call("admin.challenge.review",Object.assign({challenge_id:a,decision:t},s),"Done")&&V.challenges()};const eqCard=()=>`<div class="rounded-2xl bg-rv-surface border border-rv-border p-4 mb-5"><h3 class="text-lg font-semibold mb-1">Equity upload</h3>
   <p class="text-xs text-rv-muted mb-2">CSV columns: login, balance, equity, timestamp (optional: last_trade, open_positions). Run a check first. The backend decides pass or breach.</p>
   <textarea id="eqcsv" rows="4" class="${inp} font-mono" aria-label="Equity CSV" placeholder="login,balance,equity,timestamp"></textarea>
   <div class="mt-2 flex flex-wrap gap-2"><button class="${btn2}" data-do="eqRun" data-i="1">Check only</button><button class="${btn}" data-do="eqRun" data-i="0">Upload</button><button class="${btn2}" data-do="eqOne">Type one entry</button></div>
-  <pre id="eqout" class="mt-3 whitespace-pre-wrap text-rv-muted" aria-live="polite"></pre></div>`;
-const eqShow = d => { const o = $('#eqout'); if (!o) return;
-  o.textContent = (d.dry_run ? 'CHECK ONLY. ' : '') + `Received ${d.received}. Updated ${d.updated}. Passed ${d.passed}. Breached ${d.breached}.` +
-    (d.errors.length ? '\nErrors: ' + JSON.stringify(d.errors) : '') + (d.skipped.length ? '\nSkipped: ' + JSON.stringify(d.skipped) : '') + (d.warnings.length ? '\nWarnings: ' + JSON.stringify(d.warnings) : ''); };
-H.eqRun = async dry => {
-  const csv = $('#eqcsv').value; if (!csv.trim()) return toast('Paste the CSV first', true);
-  if (dry === '0' && !confirm('Upload these rows? Breaches and passes are applied immediately.')) return;
-  const d = await call('admin.equity.upload', { csv, dry_run: dry === '1' }); if (!d) return; eqShow(d);
-  if (dry === '0') { toast('Uploaded'); $('#eqcsv').value = ''; }
-};
-H.eqOne = async () => {
-  const f = await ask('Type one equity entry', [{ k: 'login', label: 'MT5 login' }, { k: 'balance', label: 'Balance', type: 'number' }, { k: 'equity', label: 'Equity', type: 'number' },
-    { k: 'timestamp', label: 'Time (blank = now)', help: 'For example 2026-09-29T11:00:00Z' }, { k: 'open_positions', label: 'Open positions (blank = unknown)', type: 'number' }]);
-  if (!f) return; Object.keys(f).forEach(k => f[k] === '' && delete f[k]);
-  const d = await call('admin.equity.upload', f, 'Entry applied'); if (d) { eqShow(d); }
-};
-
-let cryptoRows = [], cryptoStatus = 'awaiting_confirmation';
-V.crypto = async () => {
-  const d = await call('admin.crypto.list', { status: cryptoStatus }); if (!d) return;
-  cryptoRows = d.orders || [];
-  view(filterBar([`<select id="cs" class="${inp} !w-auto">${['awaiting_confirmation', 'awaiting_payment', 'confirmed', 'challenge_created', 'rejected', 'expired', 'all'].map(s => `<option ${s === cryptoStatus ? 'selected' : ''}>${s}</option>`).join('')}</select>`]) +
-    table(cryptoRows, { max: 10, actions: (r, i) => r.status === 'awaiting_confirmation' ? `<button class="text-rv-ok mr-3" data-do="cryApprove" data-i="${i}">Approve</button><button class="text-rv-bad" data-do="cryReject" data-i="${i}">Reject</button>` : '' }));
-  $('#cs').onchange = e => { cryptoStatus = e.target.value; V.crypto(); };
-};
-H.cryApprove = async i => {
-  const o = cryptoRows[i];
-  const f = await ask('Approve ' + o.order_ref, [{ k: 'received_usd', label: 'USDT received (exact)', type: 'number' }, { k: 'paid_at', label: 'Paid at (date/time from the chain)' },
-    { k: 'network_ok', label: 'Network is correct (TRC-20)', type: 'checkbox' }, { k: 'chain_confirmed', label: 'I confirmed this TXID on the chain', type: 'checkbox' },
-    { k: 'accept_late', label: 'Accept although late', type: 'checkbox' }, { k: 'note', label: 'Note (required if late)' }]);
-  if (!f) return;
-  if (f.received_usd === '') delete f.received_usd; if (f.paid_at === '') delete f.paid_at;
-  if (await call('admin.crypto.approve', Object.assign({ order_ref: o.order_ref }, f), 'Approved')) V.crypto();
-};
-H.cryReject = async i => {
-  const f = await ask('Reject ' + cryptoRows[i].order_ref, [{ k: 'reason', label: 'Reason (required)' }]); if (!f) return;
-  if (await call('admin.crypto.reject', { order_ref: cryptoRows[i].order_ref, reason: f.reason }, 'Rejected')) V.crypto();
-};
-
-let poRows = [], poStatus = '';
-V.payouts = async () => {
-  const d = await call('admin.payouts.list', poStatus ? { status: poStatus } : {}); if (!d) return;
-  poRows = d.payouts || [];
-  const owner = state.user.role === 'owner';
-  view(filterBar([`<select id="ps" class="${inp} !w-auto"><option value="">All</option>${['Submitted', 'Under Review', 'Approved', 'Paid', 'Rejected'].map(s => `<option ${s === poStatus ? 'selected' : ''}>${s}</option>`).join('')}</select>`]) +
-    (owner ? '' : '<p class="text-rv-warn mb-2">Only the owner can approve, reject or mark payouts paid.</p>') +
-    table(poRows, { max: 10, actions: (r, i) => !owner ? '' : (r.status === 'Submitted' ? link('Review', 'poRev') : '') + (['Submitted', 'Under Review'].includes(r.status) ? link('Approve', 'poApp', 'text-rv-ok') + link('Reject', 'poRej', 'text-rv-bad') : '') + (r.status === 'Approved' ? link('Mark paid', 'poPaid', 'text-rv-ok') : '') }).replace(/data-do="(po\w+)"/g, 'data-do="$1"'));
-  $('#ps').onchange = e => { poStatus = e.target.value; V.payouts(); };
-};
-// row index for action buttons in tables built with link(): patch data-i by position
-const withIdx = () => document.querySelectorAll('#view tbody tr').forEach((tr, i) => tr.querySelectorAll('[data-do]').forEach(b => { if (!b.dataset.i) b.dataset.i = i; }));
-new MutationObserver(withIdx).observe(document.body, { childList: true, subtree: true });
-H.poRev = async i => { if (await call('admin.payout.review', { payout_id: poRows[i].payout_id }, 'Marked under review')) V.payouts(); };
-H.poApp = async i => { if (confirm('Approve payout ' + poRows[i].payout_id + '?') && await call('admin.payout.approve', { payout_id: poRows[i].payout_id }, 'Approved')) V.payouts(); };
-H.poRej = async i => { const f = await ask('Reject payout', [{ k: 'reason', label: 'Reason (required)' }]); if (f && await call('admin.payout.reject', { payout_id: poRows[i].payout_id, reason: f.reason }, 'Rejected')) V.payouts(); };
-H.poPaid = async i => { const f = await ask('Mark paid', [{ k: 'reference', label: 'Transfer reference' }, { k: 'paid_at', label: 'Paid at (optional)' }]); if (!f) return;
-  if (f.paid_at === '') delete f.paid_at; if (await call('admin.payout.markPaid', Object.assign({ payout_id: poRows[i].payout_id }, f), 'Marked paid')) V.payouts(); };
-
-
-let payRows = [];
-V.payments = async () => {
-  const d = await call('admin.payments.list', {}); if (!d) return; payRows = d.payments || [];
-  view(`<p class="text-rv-muted mb-2">${d.total_matching} orders. ${esc(JSON.stringify(d.counts))}</p>` + table(payRows, { max: 10,
-    cols: ['order_ref', 'email', 'plan_id', 'gateway', 'amount_usd', 'currency', 'status', 'created_at'],
-    actions: r => r.status === 'confirmed' ? link('Refund', 'payRefund', 'text-rv-bad') : '' }));
-};
-H.payRefund = async i => { const f = await ask('Refund ' + payRows[i].order_ref, [{ k: 'reason', label: 'Reason (required)' }]);
-  if (f && await call('admin.payments.refund', { order_ref: payRows[i].order_ref, reason: f.reason }, 'Refunded')) V.payments(); };
-
-let userRows = [], userQ = '';
-V.users = async () => {
-  const d = await call('admin.users.list', { q: userQ }); if (!d) return; userRows = firstArray(d);
-  view(filterBar([`<input id="uq" value="${esc(userQ)}" placeholder="Email, name, phone or ID" class="${inp} !w-64"><button data-do="uFind" class="${btn}">Search</button>`]) +
-    table(userRows, { cols: ['user_id', 'email', 'full_name', 'role', 'status', 'country', 'created_at'], actions: () => link('Open', 'uOpen') }));
-};
-H.uFind = () => { userQ = $('#uq').value.trim(); V.users(); };
-H.uOpen = async i => {
-  const d = await call('admin.users.list', { target_user_id: userRows[i].user_id }); if (!d) return;
-  const u = d.user, owner = state.user.role === 'owner';
-  view(`<button data-do="nav" data-i="users" class="${btn2} mb-4">Back</button>
-    <div class="flex flex-wrap gap-2 mb-4"><button class="${btn2}" data-do="uSet" data-i="${u.user_id}">Change status</button>
-    <button class="${btn2}" data-do="uUnlock" data-i="${u.user_id}">Unlock login</button>
-    ${owner ? `<button class="${btn2}" data-do="uRole" data-i="${u.user_id}">Change role</button>` : ''}
-    ${d.kyc ? `<button class="${btn}" data-do="kycRev" data-i="${d.kyc.kyc_id}">Review KYC</button>` : ''}</div>
-    <h3 class="text-lg font-semibold mb-2">User</h3>${table([u])}<h3 class="text-lg font-semibold mt-5 mb-2">KYC</h3>${d.kyc ? table([d.kyc]) : '<p class="text-rv-muted">None.</p>'}
-    ${Object.keys(d).filter(k => Array.isArray(d[k])).map(k => `<h3 class="text-lg font-semibold mt-5 mb-2 capitalize">${esc(k)}</h3>${table(d[k], { max: 8 })}`).join('')}`);
-};
-H.uSet = async id => { const f = await ask('User status', [{ k: 'status', label: 'active, restricted or banned' }, { k: 'reason', label: 'Reason' }]);
-  if (f && await call('admin.users.update', { target_user_id: id, status: f.status, reason: f.reason }, 'Updated')) H.uOpen(userRows.findIndex(r => r.user_id === id)); };
-H.uUnlock = async id => { if (await call('admin.users.update', { target_user_id: id, unlock: true }, 'Unlocked')) {} };
-H.uRole = async id => { const f = await ask('Role (owner only)', [{ k: 'role', label: 'trader, admin or owner' }]);
-  if (f && confirm('Change role to ' + f.role + '?')) await call('admin.roles.set', { target_user_id: id, role: f.role }, 'Role updated'); };
-H.kycRev = async id => { const f = await ask('Review KYC', [{ k: 'status', label: 'Verified, Under Review or Action Required' }, { k: 'admin_note', label: 'Note to the trader' }]);
-  if (f) await call('admin.kyc.review', { kyc_id: id, status: f.status, admin_note: f.admin_note }, 'KYC updated'); };
-
-// ----- Challenge plans -----
-let planRows = [];
-V.plans = async () => {
-  const d = await call('admin.plans.list'); if (!d) return; planRows = d.plans || [];
-  view(`<button class="${btn} mb-4" data-do="planEdit" data-i="new">New plan</button>` + table(planRows, { cols: ['plan_id', 'style', 'account_size_usd', 'fee_usd', 'phase1_target', 'phase2_target', 'max_drawdown', 'payout_cap', 'status'], actions: () => link('Edit', 'planEdit') }));
-};
-H.planEdit = async i => {
-  const base = i === 'new' ? Object.assign({}, planRows[0] || {}, { plan_id: '' }) : planRows[i];
-  const keys = Object.keys(base); if (!keys.length) return toast('No plan to copy fields from', true);
-  const f = await ask(i === 'new' ? 'New plan (copied from the first plan)' : 'Edit ' + base.plan_id, keys.map(k => ({ k, label: k.replace(/_/g, ' '), v: typeof base[k] === 'object' ? JSON.stringify(base[k]) : base[k], type: 'text' })));
-  if (!f) return;
-  const plan = {}; keys.forEach(k => { const o = base[k], v = f[k];
-    if (typeof o === 'object') { try { plan[k] = JSON.parse(v); } catch (e) { plan[k] = o; } } else plan[k] = typeof o === 'number' && v !== '' ? Number(v) : v; });
-  if (await call('admin.plans.save', { plan }, 'Plan saved')) V.plans();
-};
-
-// ----- Payment setup: gateways, countries, FX, promo codes, receiving addresses -----
-let fxRows = [], promoRows = [], addrRows = [];
-V.money = async () => {
-  const [g, fx, pr, ad] = await Promise.all([call('admin.gateways.status'), call('admin.fx.save', {}), call('admin.promo.save', {}), call('admin.addresses.save', {})]);
-  fxRows = fx ? fx.rates || [] : []; promoRows = pr ? pr.promos || [] : []; addrRows = ad ? ad.addresses || [] : [];
-  view(`<h3 class="text-lg font-semibold mb-2">Gateways</h3>${g ? table(g.gateways) + `<p class="text-rv-muted mt-2">Nigeria route: ${esc(JSON.stringify(g.nigeria))}. Turn gateways on in Settings (payments group) once keys are in Script Properties.</p>` : ''}
+  <pre id="eqout" class="mt-3 whitespace-pre-wrap text-rv-muted" aria-live="polite"></pre></div>`,eqShow=e=>{const t=$("#eqout");t&&(t.textContent=(e.dry_run?"CHECK ONLY. ":"")+`Received ${e.received}. Updated ${e.updated}. Passed ${e.passed}. Breached ${e.breached}.`+(e.errors.length?`
+Errors: `+JSON.stringify(e.errors):"")+(e.skipped.length?`
+Skipped: `+JSON.stringify(e.skipped):"")+(e.warnings.length?`
+Warnings: `+JSON.stringify(e.warnings):""))};H.eqRun=async e=>{const t=$("#eqcsv").value;if(!t.trim())return toast("Paste the CSV first",!0);if(e==="0"&&!confirm("Upload these rows? Breaches and passes are applied immediately."))return;const a=await call("admin.equity.upload",{csv:t,dry_run:e==="1"});a&&(eqShow(a),e==="0"&&(toast("Uploaded"),$("#eqcsv").value=""))},H.eqOne=async()=>{const e=await ask("Type one equity entry",[{k:"login",label:"MT5 login"},{k:"balance",label:"Balance",type:"number"},{k:"equity",label:"Equity",type:"number"},{k:"timestamp",label:"Time (blank = now)",help:"For example 2026-09-29T11:00:00Z"},{k:"open_positions",label:"Open positions (blank = unknown)",type:"number"}]);if(!e)return;Object.keys(e).forEach(a=>e[a]===""&&delete e[a]);const t=await call("admin.equity.upload",e,"Entry applied");t&&eqShow(t)};let cryptoRows=[],cryptoStatus="awaiting_confirmation";V.crypto=async()=>{const e=await call("admin.crypto.list",{status:cryptoStatus});e&&(cryptoRows=e.orders||[],view(filterBar([`<select id="cs" class="${inp} !w-auto">${["awaiting_confirmation","awaiting_payment","confirmed","challenge_created","rejected","expired","all"].map(t=>`<option ${t===cryptoStatus?"selected":""}>${t}</option>`).join("")}</select>`])+table(cryptoRows,{max:10,actions:(t,a)=>t.status==="awaiting_confirmation"?`<button class="text-rv-ok mr-3" data-do="cryApprove" data-i="${a}">Approve</button><button class="text-rv-bad" data-do="cryReject" data-i="${a}">Reject</button>`:""})),$("#cs").onchange=t=>{cryptoStatus=t.target.value,V.crypto()})},H.cryApprove=async e=>{const t=cryptoRows[e],a=await ask("Approve "+t.order_ref,[{k:"received_usd",label:"USDT received (exact)",type:"number"},{k:"paid_at",label:"Paid at (date/time from the chain)"},{k:"network_ok",label:"Network is correct (TRC-20)",type:"checkbox"},{k:"chain_confirmed",label:"I confirmed this TXID on the chain",type:"checkbox"},{k:"accept_late",label:"Accept although late",type:"checkbox"},{k:"note",label:"Note (required if late)"}]);a&&(a.received_usd===""&&delete a.received_usd,a.paid_at===""&&delete a.paid_at,await call("admin.crypto.approve",Object.assign({order_ref:t.order_ref},a),"Approved")&&V.crypto())},H.cryReject=async e=>{const t=await ask("Reject "+cryptoRows[e].order_ref,[{k:"reason",label:"Reason (required)"}]);t&&await call("admin.crypto.reject",{order_ref:cryptoRows[e].order_ref,reason:t.reason},"Rejected")&&V.crypto()};let poRows=[],poStatus="";V.payouts=async()=>{const e=await call("admin.payouts.list",poStatus?{status:poStatus}:{});if(!e)return;poRows=e.payouts||[];const t=state.user.role==="owner";view(filterBar([`<select id="ps" class="${inp} !w-auto"><option value="">All</option>${["Submitted","Under Review","Approved","Paid","Rejected"].map(a=>`<option ${a===poStatus?"selected":""}>${a}</option>`).join("")}</select>`])+(t?"":'<p class="text-rv-warn mb-2">Only the owner can approve, reject or mark payouts paid.</p>')+table(poRows,{max:10,actions:(a,s)=>t?(a.status==="Submitted"?link("Review","poRev"):"")+(["Submitted","Under Review"].includes(a.status)?link("Approve","poApp","text-rv-ok")+link("Reject","poRej","text-rv-bad"):"")+(a.status==="Approved"?link("Mark paid","poPaid","text-rv-ok"):""):""}).replace(/data-do="(po\w+)"/g,'data-do="$1"')),$("#ps").onchange=a=>{poStatus=a.target.value,V.payouts()}};const withIdx=()=>document.querySelectorAll("#view tbody tr").forEach((e,t)=>e.querySelectorAll("[data-do]").forEach(a=>{a.dataset.i||(a.dataset.i=t)}));new MutationObserver(withIdx).observe(document.body,{childList:!0,subtree:!0}),H.poRev=async e=>{await call("admin.payout.review",{payout_id:poRows[e].payout_id},"Marked under review")&&V.payouts()},H.poApp=async e=>{confirm("Approve payout "+poRows[e].payout_id+"?")&&await call("admin.payout.approve",{payout_id:poRows[e].payout_id},"Approved")&&V.payouts()},H.poRej=async e=>{const t=await ask("Reject payout",[{k:"reason",label:"Reason (required)"}]);t&&await call("admin.payout.reject",{payout_id:poRows[e].payout_id,reason:t.reason},"Rejected")&&V.payouts()},H.poPaid=async e=>{const t=await ask("Mark paid",[{k:"reference",label:"Transfer reference"},{k:"paid_at",label:"Paid at (optional)"}]);t&&(t.paid_at===""&&delete t.paid_at,await call("admin.payout.markPaid",Object.assign({payout_id:poRows[e].payout_id},t),"Marked paid")&&V.payouts())};let payRows=[];V.payments=async()=>{const e=await call("admin.payments.list",{});e&&(payRows=e.payments||[],view(`<p class="text-rv-muted mb-2">${e.total_matching} orders. ${esc(JSON.stringify(e.counts))}</p>`+table(payRows,{max:10,cols:["order_ref","email","plan_id","gateway","amount_usd","currency","status","created_at"],actions:t=>t.status==="confirmed"?link("Refund","payRefund","text-rv-bad"):""})))},H.payRefund=async e=>{const t=await ask("Refund "+payRows[e].order_ref,[{k:"reason",label:"Reason (required)"}]);t&&await call("admin.payments.refund",{order_ref:payRows[e].order_ref,reason:t.reason},"Refunded")&&V.payments()};let userRows=[],userQ="";V.users=async()=>{const e=await call("admin.users.list",{q:userQ});e&&(userRows=firstArray(e),view(filterBar([`<input id="uq" value="${esc(userQ)}" placeholder="Email, name, phone or ID" class="${inp} !w-64"><button data-do="uFind" class="${btn}">Search</button>`])+table(userRows,{cols:["user_id","email","full_name","role","status","country","created_at"],actions:()=>link("Open","uOpen")})))},H.uFind=()=>{userQ=$("#uq").value.trim(),V.users()},H.uOpen=async e=>{const t=await call("admin.users.list",{target_user_id:userRows[e].user_id});if(!t)return;const a=t.user,s=state.user.role==="owner";view(`<button data-do="nav" data-i="users" class="${btn2} mb-4">Back</button>
+    <div class="flex flex-wrap gap-2 mb-4"><button class="${btn2}" data-do="uSet" data-i="${a.user_id}">Change status</button>
+    <button class="${btn2}" data-do="uUnlock" data-i="${a.user_id}">Unlock login</button>
+    ${s?`<button class="${btn2}" data-do="uRole" data-i="${a.user_id}">Change role</button>`:""}
+    ${t.kyc?`<button class="${btn}" data-do="kycRev" data-i="${t.kyc.kyc_id}">Review KYC</button>`:""}</div>
+    <h3 class="text-lg font-semibold mb-2">User</h3>${table([a])}<h3 class="text-lg font-semibold mt-5 mb-2">KYC</h3>${t.kyc?table([t.kyc]):'<p class="text-rv-muted">None.</p>'}
+    ${Object.keys(t).filter(o=>Array.isArray(t[o])).map(o=>`<h3 class="text-lg font-semibold mt-5 mb-2 capitalize">${esc(o)}</h3>${table(t[o],{max:8})}`).join("")}`)},H.uSet=async e=>{const t=await ask("User status",[{k:"status",label:"active, restricted or banned"},{k:"reason",label:"Reason"}]);t&&await call("admin.users.update",{target_user_id:e,status:t.status,reason:t.reason},"Updated")&&H.uOpen(userRows.findIndex(a=>a.user_id===e))},H.uUnlock=async e=>{await call("admin.users.update",{target_user_id:e,unlock:!0},"Unlocked")},H.uRole=async e=>{const t=await ask("Role (owner only)",[{k:"role",label:"trader, admin or owner"}]);t&&confirm("Change role to "+t.role+"?")&&await call("admin.roles.set",{target_user_id:e,role:t.role},"Role updated")},H.kycRev=async e=>{const t=await ask("Review KYC",[{k:"status",label:"Verified, Under Review or Action Required"},{k:"admin_note",label:"Note to the trader"}]);t&&await call("admin.kyc.review",{kyc_id:e,status:t.status,admin_note:t.admin_note},"KYC updated")};let planRows=[];V.plans=async()=>{const e=await call("admin.plans.list");e&&(planRows=e.plans||[],view(`<button class="${btn} mb-4" data-do="planEdit" data-i="new">New plan</button>`+table(planRows,{cols:["plan_id","style","account_size_usd","fee_usd","pass_fee_usd","max_per_user","no_promo","phase1_target","phase2_target","max_drawdown","payout_cap","status"],actions:()=>link("Edit","planEdit")})))},H.planEdit=async e=>{const t=e==="new",a=["pass_fee_usd","max_per_user","no_promo"],s=t?Object.assign({},planRows[0]||{},{plan_id:"",pass_fee_usd:0,max_per_user:0,no_promo:!1}):Object.assign({pass_fee_usd:0,max_per_user:0,no_promo:!1},planRows[e]),o=Object.keys(s).filter(i=>!a.includes(i));if(o.length<2)return toast("No plan to copy fields from",!0);const r=i=>i===!0||String(i).toLowerCase()==="true",n=[{k:"pass_fee_usd",label:"Pass fee (USD)",type:"number",v:s.pass_fee_usd===""?0:s.pass_fee_usd,help:"Paid by the trader after passing, to unlock the funded account. 0 = none."},{k:"max_per_user",label:"Max purchases per user",type:"number",v:s.max_per_user===""?0:s.max_per_user,help:"1 = can only be bought once per person. 0 = unlimited."},{k:"no_promo",label:"Promo codes not allowed on this plan",type:"checkbox",v:r(s.no_promo)}],d=o.map(i=>({k:i,label:i.replace(/_/g," "),v:typeof s[i]=="object"?JSON.stringify(s[i]):s[i],type:"text"})),b=Math.max(0,o.indexOf("fee_usd")+1);d.splice(b,0,...n);const c=await ask(t?"New plan (copied from the first plan)":"Edit "+s.plan_id,d);if(!c)return;const l={};if(o.forEach(i=>{const p=s[i],u=c[i];if(typeof p=="object")try{l[i]=JSON.parse(u)}catch{l[i]=p}else l[i]=typeof p=="number"&&u!==""?Number(u):u}),l.pass_fee_usd=Number(c.pass_fee_usd||0),l.max_per_user=Math.floor(Number(c.max_per_user||0)),l.no_promo=!!c.no_promo,!(l.pass_fee_usd>=0)||!(l.max_per_user>=0))return toast("Pass fee and max purchases must be 0 or more",!0);await call("admin.plans.save",{plan:l},"Plan saved")&&V.plans()};let fxRows=[],promoRows=[],addrRows=[];V.money=async()=>{const[e,t,a,s]=await Promise.all([call("admin.gateways.status"),call("admin.fx.save",{}),call("admin.promo.save",{}),call("admin.addresses.save",{})]);fxRows=t?t.rates||[]:[],promoRows=a?a.promos||[]:[],addrRows=s?s.addresses||[]:[],view(`<h3 class="text-lg font-semibold mb-2">Gateways</h3>${e?table(e.gateways)+`<p class="text-rv-muted mt-2">Nigeria route: ${esc(JSON.stringify(e.nigeria))}. Turn gateways on in Settings (payments group) once keys are in Script Properties.</p>`:""}
     <h3 class="text-lg font-semibold mt-6 mb-2">Country route</h3><button class="${btn}" data-do="ctryEdit">Edit a country</button>
-    <h3 class="text-lg font-semibold mt-6 mb-2">Exchange rates</h3><button class="${btn2} mb-2" data-do="fxRefresh">Refresh live rates</button> <button class="${btn2} mb-2" data-do="fxEdit" data-i="new">Add or edit currency</button>${table(fxRows, { actions: () => link('Edit', 'fxEdit') })}
-    <h3 class="text-lg font-semibold mt-6 mb-2">Promo codes</h3><button class="${btn2} mb-2" data-do="promoEdit" data-i="new">New promo</button>${table(promoRows, { actions: () => link('Edit', 'promoEdit') })}
-    <h3 class="text-lg font-semibold mt-6 mb-2">Receiving addresses (USDT)</h3><button class="${btn2} mb-2" data-do="addrEdit" data-i="new">Add address</button>${table(addrRows, { actions: () => link('Edit', 'addrEdit') })}`);
-};
-H.ctryEdit = async () => { const f = await ask('Country route', [{ k: 'country_code', label: 'Country code (e.g. GH)' }, { k: 'gateway', label: 'squad, flutterwave, monnify or manual' }, { k: 'currency', label: 'Currency (e.g. GHS)' }, { k: 'enabled', label: 'Enabled', type: 'checkbox', v: true }]);
-  if (f && await call('admin.countries.save', f, 'Country saved')) {} };
-H.fxRefresh = async () => { if (await call('admin.fx.save', { refresh: true }, 'Refreshed')) V.money(); };
-H.fxEdit = async i => { const r = i === 'new' ? {} : fxRows[i];
-  const f = await ask('Exchange rate', [{ k: 'currency', label: 'Currency', v: r.currency }, { k: 'mode', label: 'live or manual', v: r.mode }, { k: 'rate', label: 'Rate per 1 USD', v: r.rate }, { k: 'markup_pct', label: 'Markup % (blank = default)', v: r.markup_pct }, { k: 'fallback_rate', label: 'Fallback rate', v: r.fallback_rate }]);
-  if (!f) return; Object.keys(f).forEach(k => f[k] === '' && k !== 'markup_pct' && k !== 'fallback_rate' && delete f[k]);
-  if (await call('admin.fx.save', f, 'Saved')) V.money(); };
-H.promoEdit = async i => { const r = i === 'new' ? {} : promoRows[i];
-  const f = await ask('Promo code', [{ k: 'code', label: 'Code', v: r.code }, { k: 'percent_off', label: 'Percent off', v: r.percent_off }, { k: 'status', label: 'active or disabled', v: r.status || 'active' }, { k: 'expires_at', label: 'Expires (date, blank = never)', v: r.expires_at }, { k: 'usage_limit', label: 'Usage limit (blank = unlimited)', v: r.usage_limit }, { k: 'note', label: 'Note', v: r.note }]);
-  if (!f) return; if (f.percent_off === '') delete f.percent_off;
-  if (await call('admin.promo.save', f, 'Saved')) V.money(); };
-H.addrEdit = async i => { const r = i === 'new' ? { coin: 'USDT', network: 'TRC-20', active: true } : addrRows[i];
-  const f = await ask('Receiving address', [{ k: 'address_id', label: 'ID (blank for new)', v: r.address_id }, { k: 'coin', label: 'Coin', v: r.coin }, { k: 'network', label: 'Network', v: r.network }, { k: 'address', label: 'Address', v: r.address }, { k: 'note', label: 'Note', v: r.note }, { k: 'active', label: 'Active', type: 'checkbox', v: r.active !== false }]);
-  if (!f) return; if (!f.address_id) delete f.address_id;
-  if (await call('admin.addresses.save', f, 'Saved')) V.money(); };
-
-// ----- Affiliates -----
-let affRows = [], wdRows = [];
-V.affiliates = async () => {
-  const d = await call('admin.affiliates.list', {}); if (!d) return; affRows = d.affiliates || []; wdRows = d.open_withdrawals || [];
-  view(`<h3 class="text-lg font-semibold mb-2">Open withdrawals</h3>${table(wdRows, { cols: ['txn_id', 'email', 'code', 'amount_usd', 'status', 'kyc_status', 'ledger_matches', 'frozen'], actions: r => (r.status === 'requested' ? link('Approve', 'wdDo', 'text-rv-ok').replace('data-do', `data-x="approve" data-do`) : '') + (r.status === 'approved' ? link('Mark paid', 'wdDo', 'text-rv-ok').replace('data-do', `data-x="paid" data-do`) : '') + link('Reject', 'wdDo', 'text-rv-bad').replace('data-do', `data-x="reject" data-do`) })}
-    <h3 class="text-lg font-semibold mt-6 mb-2">Affiliates</h3>${table(affRows, { max: 10, actions: () => link('Manage', 'affOpen') })}`);
-};
-H.wdDo = async (i, b) => { const dec = b.dataset.x, w = wdRows[i];
-  const f = dec === 'approve' ? {} : await ask(dec === 'paid' ? 'Mark paid' : 'Reject withdrawal', dec === 'paid' ? [{ k: 'reference', label: 'Transfer reference' }, { k: 'paid_at', label: 'Paid at (optional)' }] : [{ k: 'reason', label: 'Reason (required)' }]);
-  if (!f) return; Object.keys(f).forEach(k => f[k] === '' && delete f[k]);
-  if (await call('admin.affiliates.withdrawal', Object.assign({ txn_id: w.txn_id, decision: dec }, f), 'Done')) V.affiliates(); };
-H.affOpen = async i => {
-  const a = affRows[i], id = a.affiliate_id;
-  const d = await call('admin.affiliates.list', { affiliate_id: id }); if (!d) return;
-  view(`<button data-do="nav" data-i="affiliates" class="${btn2} mb-4">Back</button><div class="flex flex-wrap gap-2 mb-4">
-    ${['approve', 'reject', 'suspend', 'reinstate', 'freeze', 'unfreeze', 'set_rate'].map(x => `<button class="${btn2}" data-do="affDo" data-i="${id}|${x}">${x.replace('_', ' ')}</button>`).join('')}
-    <button class="${btn2}" data-do="affAdj" data-i="${id}">Adjust balance</button><button class="${btn2}" data-do="affClaw" data-i="${id}">Clawback order</button></div>
-    ${table([d.affiliate], { max: 12 })}<h3 class="text-lg font-semibold mt-5 mb-2">Transactions</h3>${table(d.transactions || [], { max: 9 })}`);
-};
-H.affDo = async v => { const [id, dec] = v.split('|'); const p = { affiliate_id: id, decision: dec };
-  if (['reject', 'suspend'].includes(dec)) { const f = await ask(dec, [{ k: 'reason', label: 'Reason (required)' }]); if (!f) return; p.reason = f.reason; }
-  if (dec === 'set_rate') { const f = await ask('Commission rate', [{ k: 'rate_pct', label: 'Percent (blank = default)' }]); if (!f) return; p.rate_pct = f.rate_pct; }
-  if (await call('admin.affiliates.update', p, 'Updated')) V.affiliates(); };
-H.affAdj = async id => { const f = await ask('Adjust balance', [{ k: 'amount_usd', label: 'Amount USD (negative to deduct)' }, { k: 'reason', label: 'Reason (required)' }]);
-  if (f && await call('admin.affiliates.adjust', { affiliate_id: id, amount_usd: f.amount_usd, reason: f.reason }, 'Adjusted')) V.affiliates(); };
-H.affClaw = async id => { const f = await ask('Clawback commission', [{ k: 'order_ref', label: 'Order reference' }, { k: 'reason', label: 'Reason (required)' }]);
-  if (f && await call('admin.affiliates.clawback', f, 'Clawed back')) V.affiliates(); };
-
-V.breaches = async () => { const d = await call('admin.breaches.list', {}); if (d) view(table(firstArray(d), { max: 10 })); };
-let supportStatus = 'open', supportRows = [];
-V.support = async () => {
-  const d = await call('admin.support.list', { status: supportStatus }); if (!d) return;
-  supportRows = d.tickets || [];
-  view(filterBar([`<select id="ss" class="${inp} !w-auto">${['open', 'answered', 'closed', 'all'].map(s => `<option ${s === supportStatus ? 'selected' : ''}>${s}</option>`).join('')}</select>`]) +
-    table(supportRows, { cols: ['created_at', 'email', 'subject', 'message', 'status', 'admin_reply'], actions: (r, i) => r.status !== 'closed' ? `<button class="text-rv-blue" data-do="supReply" data-i="${i}">Reply</button>` : '' }));
-  $('#ss').onchange = e => { supportStatus = e.target.value; V.support(); };
-};
-H.supReply = async i => {
-  const t = supportRows[i];
-  const f = await ask('Reply to ' + t.email + ': ' + t.subject, [{ k: 'reply', label: 'Your reply (the trader sees it in Alerts and by email)', type: 'textarea' }, { k: 'close', label: 'Close this ticket', type: 'checkbox' }]);
-  if (!f) return;
-  if (await call('admin.support.reply', { ticket_id: t.ticket_id, reply: f.reply, close: !!f.close }, 'Reply sent')) V.support();
-};
-V.audit = async () => { const d = await call('admin.audit.list', {}); if (d) view(table(firstArray(d), { max: 9 })); };
-
-let poolRows = [];
-V.pool = async () => {
-  const d = await call('admin.pool.list', { limit: 100 }); if (!d) return;
-  poolRows = d.rows || [];
-  view(`<div class="rounded-2xl bg-rv-surface border border-rv-border p-4 mb-5">
+    <h3 class="text-lg font-semibold mt-6 mb-2">Exchange rates</h3><button class="${btn2} mb-2" data-do="fxRefresh">Refresh live rates</button> <button class="${btn2} mb-2" data-do="fxEdit" data-i="new">Add or edit currency</button>${table(fxRows,{actions:()=>link("Edit","fxEdit")})}
+    <h3 class="text-lg font-semibold mt-6 mb-2">Promo codes</h3><button class="${btn2} mb-2" data-do="promoEdit" data-i="new">New promo</button>${table(promoRows,{actions:()=>link("Edit","promoEdit")})}
+    <h3 class="text-lg font-semibold mt-6 mb-2">Receiving addresses (USDT)</h3><button class="${btn2} mb-2" data-do="addrEdit" data-i="new">Add address</button>${table(addrRows,{actions:()=>link("Edit","addrEdit")})}`)},H.ctryEdit=async()=>{const e=await ask("Country route",[{k:"country_code",label:"Country code (e.g. GH)"},{k:"gateway",label:"squad, flutterwave, monnify or manual"},{k:"currency",label:"Currency (e.g. GHS)"},{k:"enabled",label:"Enabled",type:"checkbox",v:!0}]);e&&await call("admin.countries.save",e,"Country saved")},H.fxRefresh=async()=>{await call("admin.fx.save",{refresh:!0},"Refreshed")&&V.money()},H.fxEdit=async e=>{const t=e==="new"?{}:fxRows[e],a=await ask("Exchange rate",[{k:"currency",label:"Currency",v:t.currency},{k:"mode",label:"live or manual",v:t.mode},{k:"rate",label:"Rate per 1 USD",v:t.rate},{k:"markup_pct",label:"Markup % (blank = default)",v:t.markup_pct},{k:"fallback_rate",label:"Fallback rate",v:t.fallback_rate}]);a&&(Object.keys(a).forEach(s=>a[s]===""&&s!=="markup_pct"&&s!=="fallback_rate"&&delete a[s]),await call("admin.fx.save",a,"Saved")&&V.money())},H.promoEdit=async e=>{const t=e==="new"?{}:promoRows[e],a=await ask("Promo code",[{k:"code",label:"Code",v:t.code},{k:"percent_off",label:"Percent off",v:t.percent_off},{k:"status",label:"active or disabled",v:t.status||"active"},{k:"expires_at",label:"Expires (date, blank = never)",v:t.expires_at},{k:"usage_limit",label:"Usage limit (blank = unlimited)",v:t.usage_limit},{k:"note",label:"Note",v:t.note}]);a&&(a.percent_off===""&&delete a.percent_off,await call("admin.promo.save",a,"Saved")&&V.money())},H.addrEdit=async e=>{const t=e==="new"?{coin:"USDT",network:"TRC-20",active:!0}:addrRows[e],a=await ask("Receiving address",[{k:"address_id",label:"ID (blank for new)",v:t.address_id},{k:"coin",label:"Coin",v:t.coin},{k:"network",label:"Network",v:t.network},{k:"address",label:"Address",v:t.address},{k:"note",label:"Note",v:t.note},{k:"active",label:"Active",type:"checkbox",v:t.active!==!1}]);a&&(a.address_id||delete a.address_id,await call("admin.addresses.save",a,"Saved")&&V.money())};let affRows=[],wdRows=[];V.affiliates=async()=>{const e=await call("admin.affiliates.list",{});e&&(affRows=e.affiliates||[],wdRows=e.open_withdrawals||[],view(`<h3 class="text-lg font-semibold mb-2">Open withdrawals</h3>${table(wdRows,{cols:["txn_id","email","code","amount_usd","status","kyc_status","ledger_matches","frozen"],actions:t=>(t.status==="requested"?link("Approve","wdDo","text-rv-ok").replace("data-do",'data-x="approve" data-do'):"")+(t.status==="approved"?link("Mark paid","wdDo","text-rv-ok").replace("data-do",'data-x="paid" data-do'):"")+link("Reject","wdDo","text-rv-bad").replace("data-do",'data-x="reject" data-do')})}
+    <h3 class="text-lg font-semibold mt-6 mb-2">Affiliates</h3>${table(affRows,{max:10,actions:()=>link("Manage","affOpen")})}`))},H.wdDo=async(e,t)=>{const a=t.dataset.x,s=wdRows[e],o=a==="approve"?{}:await ask(a==="paid"?"Mark paid":"Reject withdrawal",a==="paid"?[{k:"reference",label:"Transfer reference"},{k:"paid_at",label:"Paid at (optional)"}]:[{k:"reason",label:"Reason (required)"}]);o&&(Object.keys(o).forEach(r=>o[r]===""&&delete o[r]),await call("admin.affiliates.withdrawal",Object.assign({txn_id:s.txn_id,decision:a},o),"Done")&&V.affiliates())},H.affOpen=async e=>{const t=affRows[e],a=t.affiliate_id,s=await call("admin.affiliates.list",{affiliate_id:a});s&&view(`<button data-do="nav" data-i="affiliates" class="${btn2} mb-4">Back</button><div class="flex flex-wrap gap-2 mb-4">
+    ${["approve","reject","suspend","reinstate","freeze","unfreeze","set_rate"].map(o=>`<button class="${btn2}" data-do="affDo" data-i="${a}|${o}">${o.replace("_"," ")}</button>`).join("")}
+    <button class="${btn2}" data-do="affAdj" data-i="${a}">Adjust balance</button><button class="${btn2}" data-do="affClaw" data-i="${a}">Clawback order</button></div>
+    ${table([s.affiliate],{max:12})}<h3 class="text-lg font-semibold mt-5 mb-2">Transactions</h3>${table(s.transactions||[],{max:9})}`)},H.affDo=async e=>{const[t,a]=e.split("|"),s={affiliate_id:t,decision:a};if(["reject","suspend"].includes(a)){const o=await ask(a,[{k:"reason",label:"Reason (required)"}]);if(!o)return;s.reason=o.reason}if(a==="set_rate"){const o=await ask("Commission rate",[{k:"rate_pct",label:"Percent (blank = default)"}]);if(!o)return;s.rate_pct=o.rate_pct}await call("admin.affiliates.update",s,"Updated")&&V.affiliates()},H.affAdj=async e=>{const t=await ask("Adjust balance",[{k:"amount_usd",label:"Amount USD (negative to deduct)"},{k:"reason",label:"Reason (required)"}]);t&&await call("admin.affiliates.adjust",{affiliate_id:e,amount_usd:t.amount_usd,reason:t.reason},"Adjusted")&&V.affiliates()},H.affClaw=async e=>{const t=await ask("Clawback commission",[{k:"order_ref",label:"Order reference"},{k:"reason",label:"Reason (required)"}]);t&&await call("admin.affiliates.clawback",t,"Clawed back")&&V.affiliates()},V.breaches=async()=>{const e=await call("admin.breaches.list",{});e&&view(table(firstArray(e),{max:10}))};let supportStatus="open",supportRows=[];V.support=async()=>{const e=await call("admin.support.list",{status:supportStatus});e&&(supportRows=e.tickets||[],view(filterBar([`<select id="ss" class="${inp} !w-auto">${["open","answered","closed","all"].map(t=>`<option ${t===supportStatus?"selected":""}>${t}</option>`).join("")}</select>`])+table(supportRows,{cols:["created_at","email","subject","message","status","admin_reply"],actions:(t,a)=>t.status!=="closed"?`<button class="text-rv-blue" data-do="supReply" data-i="${a}">Reply</button>`:""})),$("#ss").onchange=t=>{supportStatus=t.target.value,V.support()})},H.supReply=async e=>{const t=supportRows[e],a=await ask("Reply to "+t.email+": "+t.subject,[{k:"reply",label:"Your reply (the trader sees it in Alerts and by email)",type:"textarea"},{k:"close",label:"Close this ticket",type:"checkbox"}]);a&&await call("admin.support.reply",{ticket_id:t.ticket_id,reply:a.reply,close:!!a.close},"Reply sent")&&V.support()},V.audit=async()=>{const e=await call("admin.audit.list",{});e&&view(table(firstArray(e),{max:9}))};let poolRows=[];V.pool=async()=>{const e=await call("admin.pool.list",{limit:100});e&&(poolRows=e.rows||[],view(`<div class="rounded-2xl bg-rv-surface border border-rv-border p-4 mb-5">
       <h3 class="text-lg font-semibold mb-2">Import accounts (CSV)</h3>
       <p class="text-rv-muted mb-2">Columns: login, password, investor_password, server, size. Run a check first.</p>
       <textarea id="csv" rows="5" class="${inp} font-mono" placeholder="login,password,investor_password,server,size"></textarea>
       <div class="mt-2 flex gap-2"><button class="${btn2}" data-do="poolCheck">Check only</button><button class="${btn}" data-do="poolImport">Import</button></div>
       <pre id="pres" class="mt-3 text-rv-white whitespace-pre-wrap"></pre></div>
-    <h3 class="text-lg font-semibold mb-2">Stock</h3>${stockTable(d.stock, (d.stock || []).filter(x => x.low))}<div class="mb-5"></div>
-    <h3 class="text-lg font-semibold mb-2">Accounts (${d.total})</h3>${table(poolRows, { max: 8, actions: () => link('Reveal passwords', 'poolReveal') })}`);
-};
-const poolRun = async dry => {
-  const csv = $('#csv').value; if (!csv.trim()) return toast('Paste the CSV first', true);
-  const d = await call('admin.pool.import', { csv, dry_run: dry }); if (!d) return;
-  $('#pres').textContent = (d.dry_run ? 'CHECK ONLY. ' : '') + `Valid ${d.valid} of ${d.total}. Imported ${d.imported}.` + (d.blocked ? ' Blocked: fix the rows below and retry.' : '') +
-    (d.rejected.length ? '\nInvalid: ' + JSON.stringify(d.rejected) : '') + (d.duplicates.length ? '\nDuplicates: ' + JSON.stringify(d.duplicates) : '');
-  if (!dry && d.imported) { $('#csv').value = ''; toast('Imported ' + d.imported); }
-};
-H.poolCheck = () => poolRun(true);
-H.poolImport = () => poolRun(false);
-H.poolReveal = async i => {
-  const d = await call('admin.pool.list', { reveal_id: poolRows[i].pool_id, limit: 1 }); if (!d || !d.reveal) return;
-  const r = d.reveal; alert(`Login ${r.login}\nServer ${r.server}\nPassword ${r.password}\nInvestor password ${r.investor_password}\n\n(This view was written to the audit log.)`);
-};
+    <h3 class="text-lg font-semibold mb-2">Stock</h3>${stockTable(e.stock,(e.stock||[]).filter(t=>t.low))}<div class="mb-5"></div>
+    <h3 class="text-lg font-semibold mb-2">Accounts (${e.total})</h3>${table(poolRows,{max:8,actions:()=>link("Reveal passwords","poolReveal")})}`))};const poolRun=async e=>{const t=$("#csv").value;if(!t.trim())return toast("Paste the CSV first",!0);const a=await call("admin.pool.import",{csv:t,dry_run:e});a&&($("#pres").textContent=(a.dry_run?"CHECK ONLY. ":"")+`Valid ${a.valid} of ${a.total}. Imported ${a.imported}.`+(a.blocked?" Blocked: fix the rows below and retry.":"")+(a.rejected.length?`
+Invalid: `+JSON.stringify(a.rejected):"")+(a.duplicates.length?`
+Duplicates: `+JSON.stringify(a.duplicates):""),!e&&a.imported&&($("#csv").value="",toast("Imported "+a.imported)))};H.poolCheck=()=>poolRun(!0),H.poolImport=()=>poolRun(!1),H.poolReveal=async e=>{const t=await call("admin.pool.list",{reveal_id:poolRows[e].pool_id,limit:1});if(!t||!t.reveal)return;const a=t.reveal;alert(`Login ${a.login}
+Server ${a.server}
+Password ${a.password}
+Investor password ${a.investor_password}
 
-let setRows = [], setDirty = {};
-V.settings = async () => {
-  const d = await call('admin.settings.get'); if (!d) return;
-  setRows = d.settings || []; setDirty = {};
-  const groups = {}; setRows.forEach(s => (groups[s.group || 'other'] = groups[s.group || 'other'] || []).push(s));
-  view(`<button data-do="setSave" class="${btn} mb-4 sticky top-2 z-10">Save changes</button>` + Object.keys(groups).map(g =>
-    `<h3 class="text-lg font-semibold mt-5 mb-2 capitalize">${esc(g)}</h3><div class="grid md:grid-cols-2 gap-3">${groups[g].map(s => `<label class="block"><span class="text-rv-white">${esc(s.key)}</span> <span class="text-rv-muted text-xs">${esc(s.description)}</span>
-      ${s.type === 'bool' ? `<select data-sk="${esc(s.key)}" class="${inp}"><option ${String(s.value) === 'true' ? 'selected' : ''}>true</option><option ${String(s.value) !== 'true' ? 'selected' : ''}>false</option></select>`
-        : (s.type === 'json' || String(s.value).length > 60) ? `<textarea data-sk="${esc(s.key)}" rows="3" class="${inp} font-mono">${esc(s.value)}</textarea>`
-        : `<input data-sk="${esc(s.key)}" value="${esc(s.value)}" class="${inp}">`}</label>`).join('')}</div>`).join(''));
-  document.querySelectorAll('[data-sk]').forEach(el => el.onchange = () => { setDirty[el.dataset.sk] = el.value; });
-};
-H.setSave = async () => {
-  if (!Object.keys(setDirty).length) return toast('No changes');
-  const changes = {}; Object.keys(setDirty).forEach(k => { const s = setRows.find(r => r.key === k); changes[k] = s && s.type === 'bool' ? setDirty[k] === 'true' : s && s.type === 'number' ? Number(setDirty[k]) : setDirty[k]; });
-  if (await call('admin.settings.set', { changes }, 'Saved')) V.settings();
-};
-
-// ---------- boot ----------
-(async function () {
-  if (getToken()) { const r = await api('me.get'); if (r.ok && r.data) { const u = r.data.user || r.data; if (u.role === 'admin' || u.role === 'owner') state.user = u; } }
-  render();
-})();
-</script>
-</body>
-</html>
+(This view was written to the audit log.)`)};let setRows=[],setDirty={};V.settings=async()=>{const e=await call("admin.settings.get");if(!e)return;setRows=e.settings||[],setDirty={};const t={};setRows.forEach(a=>(t[a.group||"other"]=t[a.group||"other"]||[]).push(a)),view(`<button data-do="setSave" class="${btn} mb-4 sticky top-2 z-10">Save changes</button>`+Object.keys(t).map(a=>`<h3 class="text-lg font-semibold mt-5 mb-2 capitalize">${esc(a)}</h3><div class="grid md:grid-cols-2 gap-3">${t[a].map(s=>`<label class="block"><span class="text-rv-white">${esc(s.key)}</span> <span class="text-rv-muted text-xs">${esc(s.description)}</span>
+      ${s.type==="bool"?`<select data-sk="${esc(s.key)}" class="${inp}"><option ${String(s.value)==="true"?"selected":""}>true</option><option ${String(s.value)!=="true"?"selected":""}>false</option></select>`:s.type==="json"||String(s.value).length>60?`<textarea data-sk="${esc(s.key)}" rows="3" class="${inp} font-mono">${esc(s.value)}</textarea>`:`<input data-sk="${esc(s.key)}" value="${esc(s.value)}" class="${inp}">`}</label>`).join("")}</div>`).join("")),document.querySelectorAll("[data-sk]").forEach(a=>a.onchange=()=>{setDirty[a.dataset.sk]=a.value})},H.setSave=async()=>{if(!Object.keys(setDirty).length)return toast("No changes");const e={};Object.keys(setDirty).forEach(t=>{const a=setRows.find(s=>s.key===t);e[t]=a&&a.type==="bool"?setDirty[t]==="true":a&&a.type==="number"?Number(setDirty[t]):setDirty[t]}),await call("admin.settings.set",{changes:e},"Saved")&&V.settings()},(async function(){if(getToken()){const e=await api("me.get");if(e.ok&&e.data){const t=e.data.user||e.data;(t.role==="admin"||t.role==="owner")&&(state.user=t)}}render()})();</script> <script id="uxjs">(function(){try{var a=document,o=a.body,r=function(t,n){var e=a.createElement(t);for(var i in n)e[i]=n[i];return e},h=r("a",{className:"ux-skip",href:"#app",textContent:"Skip to content"});o.insertBefore(h,o.firstChild);var d=r("div",{id:"ux-prog"}),s=r("button",{id:"ux-top",type:"button",textContent:"\u2191"}),l=r("div",{id:"ux-off",textContent:"You are offline. Some actions will not work until you reconnect."});s.setAttribute("aria-label","Back to top"),l.setAttribute("role","status"),o.appendChild(d),o.appendChild(s),o.appendChild(l);var p=function(){var t=a.documentElement,n=t.scrollHeight-t.clientHeight,e=t.scrollTop||o.scrollTop;d.style.width=(n>0?e/n*100:0)+"%",s.classList.toggle("on",e>500)};addEventListener("scroll",p,{passive:!0}),p(),s.onclick=function(){scrollTo({top:0,behavior:"smooth"})};var u=function(){l.classList.toggle("on",navigator.onLine===!1)};addEventListener("online",u),addEventListener("offline",u),u();var v=function(){a.querySelectorAll("input[type=password]:not([data-ux])").forEach(function(t){t.setAttribute("data-ux","1");var n=r("span",{className:"ux-eyew"}),e=r("button",{type:"button",className:"ux-eye",textContent:"Show"});e.setAttribute("aria-label","Show or hide password"),t.parentNode.insertBefore(n,t),n.appendChild(t),n.appendChild(e),e.onclick=function(){var i=t.type==="password";t.type=i?"text":"password",e.textContent=i?"Hide":"Show"}})},f=a.getElementById("app");if(f&&window.MutationObserver){var c=0;new MutationObserver(function(){c||(c=setTimeout(function(){c=0;try{v()}catch{}},60))}).observe(f,{childList:!0,subtree:!0})}v()}catch{}})();</script></body> </html>
