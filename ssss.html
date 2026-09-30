@@ -77,7 +77,9 @@ cm.on('change', () => { if (cur && files[cur]) files[cur].source = cm.getValue()
 function log(m, err){ const l=$('log'); l.textContent=m; l.className=err?'err':''; }
 function saved(k){ try{ return localStorage.getItem(k)||''; }catch(e){ return ''; } }
 function save(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
-$('cid').value = saved('sd_cid'); $('sid').value = saved('sd_sid');
+const CLIENT_ID = '523526427729-1hhg0ne21ki0l568ftupkehl7i5uo2ub.apps.googleusercontent.com';
+const SCRIPT_ID = '1tIJsG86ZadAcIsnL_--cahrW46hhDqWQXCWaZhS9jfSnlFKflaCQcGa2';
+$('cid').value = CLIENT_ID; $('sid').value = SCRIPT_ID;
 
 const EXT = {SERVER_JS:'.gs', HTML:'.html', JSON:'.json'};
 function modeFor(t){ return t==='HTML' ? 'htmlmixed' : t==='JSON' ? {name:'javascript',json:true} : 'javascript'; }
@@ -153,6 +155,7 @@ $('signin').onclick = () => {
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: cid,
     scope: 'https://www.googleapis.com/auth/script.projects https://www.googleapis.com/auth/script.deployments',
+    error_callback: e => log('Sign-in problem: '+(e.type||'unknown')+'. Allow popups for this site and try again.',1),
     callback: r => {
       if (r.error) return log('Sign-in failed: '+r.error,1);
       token = r.access_token; $('pull').disabled = $('push').disabled = $('deploy').disabled = false;
