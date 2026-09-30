@@ -10,7 +10,8 @@ Everything is in one folder called `raven`. The only sub-folder is `.github/work
 
 ```
 raven/
-├── index.html            website (public pages and trader area)
+├── index.html            landing page (small, fast, static)
+├── app.html              the app: sign in, challenges, dashboard, payouts and all info pages
 ├── admin.html            admin page (your control panel)
 ├── logo.svg
 ├── favicon.svg
@@ -21,6 +22,8 @@ raven/
 ├── sitemap.xml
 ├── CNAME                 your domain (ravenprop.cfd)
 ├── Code.gs, Access.gs               back office code, split into small files
+├── Migrate.gs            list of one-time fixes for a live system (Run migration button)
+├── Bootstrap.gs          one call that loads config, user, alerts and challenges on start
 ├── Engine.gs, Engine_2.gs
 ├── Money.gs ... Money_13.gs
 ├── Ops.gs ... Ops_5.gs
@@ -553,3 +556,40 @@ Make them from your logo at https://realfavicongenerator.net and put them in the
 - Keep the "Raven Prop Data" Sheet **private**.
 - Use a strong, unique password for the owner account and for your Google account. Turn on 2-step verification on Google and GitHub.
 - The rules a trader accepted when they bought stay with their challenge. Do not change a plan in a way that surprises existing customers.
+
+
+---
+
+## Updating a live system: the Run migration button
+
+Seeds in `Code.gs` only run when the spreadsheet is first built. Any change that must reach data that already exists (plan values, settings, new columns) needs an entry in `MIGRATIONS_` in `Migrate.gs`.
+
+Every update, in this order:
+
+1. Replace the changed `.gs` files in Apps Script (add new files like `Migrate.gs` if missing).
+2. **Deploy > Manage deployments > Edit > New version > Deploy.** The web app URL stays the same.
+3. Upload the changed website files (`index.html`, `admin.html`) to GitHub.
+4. Admin > **Settings** > **Run migration** (owner only). The button shows how many fixes are pending and lists them before running.
+
+Rules: never edit or reorder a migration that has already shipped, add a new one at the bottom. Each one must be safe to run twice. Applied ids are stored in the Script Property `MIGRATIONS_DONE`.
+
+
+---
+
+## Two pages: index.html and app.html
+
+- `index.html` is the landing page. It is small, has no framework, and shows the live plan numbers after the page has painted. Every button goes to `app.html`.
+- `app.html` is everything else (sign in, challenges, dashboard, payouts, rules, FAQ, legal pages).
+- Old links still work: if `index.html` is opened with a route such as `/#/pay/return?order=...` or `/#reset=...` (payment returns, password reset emails), it forwards to `app.html` with the same address. Referral links (`/?ref=CODE`) are handled by the landing page, which saves the code and counts the click.
+- Nothing in the back office changes for this split, so no migration is needed.
+
+
+---
+
+## One start-up call (app.bootstrap)
+
+`app.html` used to make separate calls on load (config, me, alerts, then challenges). It now makes one call, `app.bootstrap`, which works signed out (public config only) and signed in (adds user, unread count and challenges). A bad or expired token counts as signed out.
+
+- Deploy order: replace `Code.gs`, add `Bootstrap.gs`, then Deploy > New version, then upload `app.html`.
+- If `app.html` is uploaded before the new Apps Script version is deployed, it falls back to the old separate calls, so the site keeps working.
+- No migration is needed.
