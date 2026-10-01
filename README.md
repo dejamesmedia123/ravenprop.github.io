@@ -620,3 +620,44 @@ Rules: never edit or reorder a migration that has already shipped, add a new one
 - Deploy order: replace `Code.gs`, add `Bootstrap.gs`, then Deploy > New version, then upload `app.html`.
 - If `app.html` is uploaded before the new Apps Script version is deployed, it falls back to the old separate calls, so the site keeps working.
 - No migration is needed.
+
+
+---
+
+## Google sign-up and sign-in
+
+The sign-in and sign-up pages show a **Continue with Google** button once a Google Client ID is saved in Settings. With no Client ID the button stays hidden and nothing changes.
+
+**One-time setup (about 10 minutes)**
+
+1. Go to https://console.cloud.google.com and create a project (or pick one), for example `Raven Prop`.
+2. Open **APIs & Services > OAuth consent screen**. Choose **External**, fill in the app name, support email and developer email, then save. Click **Publish app** so any Google user can sign in (not just test users).
+3. Open **APIs & Services > Credentials > Create credentials > OAuth client ID**. Application type: **Web application**.
+4. Under **Authorized JavaScript origins** add `https://ravenprop.cfd` (and `https://www.ravenprop.cfd` if you use it). Leave redirect URIs empty. Click **Create**.
+5. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`). It is not a secret.
+6. Update the back office: paste the new `Code.gs` and `Access.gs` into Apps Script, then **Deploy > Manage deployments > edit > New version > Deploy**.
+7. In `admin.html` open **Settings > Run migration** (this adds the new `google_client_id` setting), then paste the Client ID into **google_client_id** and save.
+8. Upload the new `app.html` to GitHub.
+
+**How it behaves**
+
+- New person: an account is created with their Google email and name. All the normal sign-up rules still apply (sign-ups closed, maintenance, blocked emails, referral codes).
+- Existing person with the same email: they are signed in to their existing account. Google confirms the email is verified before this is allowed.
+- Banned accounts are refused, same as password login.
+- Accounts created with Google start with **no password**. On the Profile page the box shows **Set a password** (no current password asked). After that, they can sign in with Google or email and password, and the box becomes the normal **Change password**. **Forgot password** also works.
+- If someone with a Google-only account tries email and password, they are told to use the Google button or set a password.
+- The admin page (`admin.html`) still uses email and password only.
+
+
+---
+
+## Colour theme: white by default, dark mode offer after login
+
+- The app (`app.html`) now opens in the **white** theme for everyone.
+- Right after each sign-in (password or Google) the person is asked **"Switch to dark mode?"**
+  - **Yes**: dark mode stays on for **3 days**, then goes back to white by itself. The Me tab shows the date it ends.
+  - **No**: stays white, and the screen tells them they can change the colour scheme any time in the **Me** tab under Appearance. They are not asked again.
+- Choosing a theme yourself in **Me > Appearance** is permanent until changed, and the question is not shown again.
+- If a 3-day dark period has ended, the next sign-in asks again.
+- The 3-day timer is stored in the browser (`raven_dark_until`), so it applies per device. `admin.html` is unchanged.
+- The landing page (`index.html`) is also white by default. It reads the same browser setting, so if someone has dark mode switched on (for the 3 days, or by choice in the Me tab) the landing page shows dark too, and returns to white when the 3 days end. The guides pages (`guides/`) are still dark.
