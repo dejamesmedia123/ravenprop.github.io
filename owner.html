@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0E0A07"><title>Raven Owner</title><link rel="icon" href="favicon.svg"><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"></head><body><div id="app"></div><div id="modal" hidden></div><div id="toasts" role="status"></div><script src="admin-common.js"></script><script>
+R.init({page:"owner",owner:!0},async m=>{const {$,esc,H,call,tbl,d,btn,ask,dlg,toast}=R;
+const S={rows:[]};
+m.innerHTML=`<section class="panel"><h2>Roles</h2><p class="mu sm">Make a trader an admin, or take admin back. They sign in again to pick up the change.</p><div class="bar"><input id="q" placeholder="Email, name or ID"><select id="r"><option value="admin">Admins</option><option value="trader">Traders</option></select><button class="b1" data-a="go">Search</button></div><div id="t"></div></section><section class="panel"><h2>Database migrations</h2><p class="mu sm">Safe to run twice. Run after deploying new code.</p><button class="b1" data-a="mg">Run migrations</button><pre id="o" class="mu sm" style="white-space:pre-wrap"></pre></section>`;
+H.go=async()=>{const x=await call("admin.users.list",{q:$("#q").value.trim(),role:$("#r").value});if(!x)return;S.rows=x.users||[];$("#t").innerHTML=tbl(["Email","Name","Role","Status",""],S.rows.map((u,i)=>`<tr><td>${esc(u.email)}</td><td>${esc(u.full_name)}</td><td>${esc(u.role)}</td><td>${esc(u.status)}</td><td>${btn("rl",i,u.role==="admin"?"Make trader":"Make admin",u.role==="admin"?"x":"b1")}</td></tr>`))};
+H.rl=async i=>{const u=S.rows[i],n=u.role==="admin"?"trader":"admin";confirm(`Change ${u.email} to ${n}?`)&&await call("admin.roles.set",{target_user_id:u.user_id,new_role:n},"Role changed")&&H.go()};
+H.mg=async()=>{const x=await call("admin.migrate",{});x&&($("#o").textContent=JSON.stringify(x,null,2))};
+$("#q").onkeydown=e=>e.key==="Enter"&&H.go();H.go();
+});
+</script></body></html>

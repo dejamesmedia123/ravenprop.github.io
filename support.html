@@ -1,0 +1,10 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><meta name="theme-color" content="#0E0A07"><title>Raven Support</title><link rel="icon" href="favicon.svg"><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet"></head><body><div id="app"></div><div id="modal" hidden></div><div id="toasts" role="status"></div><script src="admin-common.js"></script><script>
+R.init({page:"support"},async m=>{const {$,esc,H,call,tbl,d,btn,ask,dlg,toast}=R;
+const S={f:"open",rows:[]},TP=["(none)","We have received your request and are looking into it.","Your payment is confirmed. Your account will be issued shortly.","Please send your order reference and TXID so we can check."];
+m.innerHTML=`<section class="panel"><h2>Support tickets</h2><div class="bar"><select id="f">${["open","answered","closed","all"].map(s=>`<option>${s}</option>`).join("")}</select></div><div id="t"></div></section>`;
+$("#f").onchange=e=>{S.f=e.target.value;load()};
+async function load(){const x=await call("admin.support.list",{status:S.f});if(!x)return;S.rows=x.tickets||[];$("#t").innerHTML=tbl(["When","From","Subject","Message","Reply",""],S.rows.map((t,i)=>`<tr><td>${d(t.created_at)}</td><td class="sm">${esc(t.name)}<div class="mu">${esc(t.email)}</div></td><td>${esc(t.subject)}</td><td style="white-space:normal;min-width:240px">${esc(t.message)}</td><td style="white-space:normal;min-width:200px" class="mu sm">${esc(t.admin_reply)}</td><td>${t.status!=="closed"?btn("rp",i,"Reply","b1"):""}</td></tr>`))}
+H.rp=i=>dlg("Reply to "+S.rows[i].subject,[{k:"tpl",l:"Quick reply",t:"sel",o:TP,v:TP[0]},{k:"reply",l:"Or write your own",t:"area",v:""},{k:"close",l:"Close the ticket",t:"check",v:!0}],async v=>{const r=await call("admin.support.reply",{ticket_id:S.rows[i].ticket_id,reply:v.reply||(v.tpl===TP[0]?"":v.tpl),close:v.close},"Sent");if(r){H.cl();load()}});
+load();
+});
+</script></body></html>
