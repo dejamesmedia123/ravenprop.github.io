@@ -23,6 +23,15 @@ jobs:
         run: |
           Invoke-WebRequest "https://download.mql5.com/cdn/web/metaquotes.software.corp/mt5/mt5setup.exe" -OutFile mt5setup.exe
           Start-Process .\mt5setup.exe -ArgumentList "/auto" -Wait
+          # The installer is a small downloader, so wait for the real terminal to appear
+          $exe = $null
+          for ($i = 0; $i -lt 60 -and -not $exe; $i++) {
+            Start-Sleep -Seconds 5
+            $exe = Get-ChildItem "C:\Program Files","C:\Program Files (x86)","$env:LOCALAPPDATA","$env:APPDATA" -Recurse -Filter terminal64.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          if (-not $exe) { Write-Host "terminal64.exe was not found after install"; exit 1 }
+          Write-Host "Found MT5 at $($exe.FullName)"
+          "MT5_PATH=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Run monitor
         env:
           RAVEN_API_URL: ${{ secrets.RAVEN_API_URL }}
