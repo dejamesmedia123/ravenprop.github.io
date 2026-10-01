@@ -34,7 +34,8 @@ def main():
         print('Could not fetch accounts:', res.get('error'))
         return 1
     accounts = res['data']['accounts']
-    if not mt5.initialize():
+    path = os.environ.get('MT5_PATH', '')
+    if not (mt5.initialize(path=path) if path else mt5.initialize()):
         print('MetaTrader 5 did not start:', mt5.last_error())
         return 1
     rows, failed = ([], [])
