@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+import time
 import urllib.request
 from datetime import datetime, timedelta, timezone
 import MetaTrader5 as mt5
@@ -34,8 +35,30 @@ def main():
         print('Could not fetch accounts:', res.get('error'))
         return 1
     accounts = res['data']['accounts']
+    if not accounts:
+        print('No accounts to read.')
+        return 0
     path = os.environ.get('MT5_PATH', '')
-    if not (mt5.initialize(path=path) if path else mt5.initialize()):
+    first = accounts[0]
+    kw = dict(login=int(first['login']), password=first['investor_password'], server=first['server'], timeout=120000)
+    if path:
+        kw['path'] = path
+    ok = False
+    for attempt in range(3):
+        if mt5.initialize(**kw):
+            ok = True
+            break
+        print('MT5 init attempt', attempt + 1, 'failed:', mt5.last_error())
+        mt5.shutdown()
+        # a bad login must not block start-up; start the bare terminal and let each account log in on its own
+        bare = {k: v for k, v in kw.items() if k in ('path', 'timeout')}
+        if mt5.initialize(**bare):
+            ok = True
+            break
+        print('MT5 bare start failed:', mt5.last_error())
+        mt5.shutdown()
+        time.sleep(20)
+    if not ok:
         print('MetaTrader 5 did not start:', mt5.last_error())
         return 1
     rows, failed = ([], [])
