@@ -32,6 +32,35 @@ var MIGRATIONS_ = [
       admin_plansSave({ plan: { plan_id: "starter-500", min_payout_pct: 5 } }, ctx);
       return "Starter minimum payout changed from " + p.min_payout_pct + "% to 5%";
     }
+  },
+  {
+    id: "2026-10-01-starter-1000-plan",
+    note: "Add the Starter 1,000 plan: $1,000 account for $7, can be bought again and again",
+    run: function (ctx) {
+      if (sheet_getByKey("ChallengePlans", "starter-1000")) return "Starter 1,000 plan (starter-1000) already exists, skipped";
+      admin_plansSave({ plan: {
+        plan_id: "starter-1000", style: "Starter", account_size_usd: 1000, fee_usd: 7, no_promo: true,
+        phase1_target: 10, phase2_target: 0, daily_drawdown: 3.5, daily_drawdown_funded: 3.5,
+        max_drawdown: 7, max_drawdown_funded: 7, drawdown_type: "static",
+        profit_split_tiers: [{ from: 1, pct: 70 }, { from: 4, pct: 80 }],
+        min_payout_pct: 5, payout_gap_days: 7, payout_cap: 10, scale_up_rule: "",
+        minimum_days: 0, time_limit_days: 0, inactivity_days: 30, inactivity_warning_days: 23,
+        daily_reset_time: "00:00", daily_reset_tz: "UTC", sort_order: 101, status: "active"
+      } }, ctx);
+      return "Added Starter 1,000 plan: $1,000 account, $7 fee, 7% max drawdown, repeat purchase allowed";
+    }
+  },
+  {
+    id: "2026-10-01-starter-1000-max-dd-7",
+    note: "Starter 1,000 plan: max drawdown 7% (static). The daily trailing limit follows at 3.5%",
+    run: function (ctx) {
+      var p = sheet_getByKey("ChallengePlans", "starter-1000");
+      if (!p) return "Starter 1,000 plan (starter-1000) not found, skipped";
+      if (Number(p.max_drawdown) === 7 && Number(p.max_drawdown_funded) === 7) return "Starter 1,000 max drawdown already 7%";
+      var was = p.max_drawdown;
+      admin_plansSave({ plan: { plan_id: "starter-1000", max_drawdown: 7, max_drawdown_funded: 7, daily_drawdown: 3.5, daily_drawdown_funded: 3.5 } }, ctx);
+      return "Starter 1,000 max drawdown changed from " + was + "% to 7%";
+    }
   }
 ];
 

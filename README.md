@@ -285,11 +285,38 @@ Open **Settings**. Check at least:
 Open **Challenge plans** > **New plan**. For each product you sell, set the account size, fee (USD), profit targets, daily loss limit, max loss limit, minimum trading days and inactivity days. Save. Traders see these numbers before paying, so they are your legal promise (see the Terms page).
 
 
+### 9.2c Drawdown rules: static max + trailing daily (all accounts)
+
+Every account is now checked against **two** loss limits at once. Breaching either one ends the challenge.
+
+| Rule | Size | How the floor moves |
+|---|---|---|
+| **Max loss** (unchanged) | `max_drawdown` % of the starting balance | **Static.** Fixed floor, never moves. |
+| **Daily loss** (new) | **Half of the max loss %**, as a dollar amount of the starting balance | **Trailing.** Floor = the day's highest level (day-start balance or best equity seen that day) minus the daily amount. It rises as the day's equity peaks and resets at the daily reset time. |
+
+Example, Swift 10k (max 6%, so daily 3% = $300): day starts at $10,000, equity peaks at $10,600, so the daily floor is $10,300. Equity at $10,290 breaches the daily rule even though the static max floor ($9,400) is nowhere near.
+
+Notes:
+- The daily % is **always half of the stage's max %** (Funded uses `max_drawdown_funded`). The `daily_drawdown` / `daily_drawdown_funded` values stored in the ChallengePlans sheet are ignored; the plan list and the trader pages show the derived value. Edit the max and the daily limit follows.
+- The day's high is built from the equity readings the monitor uploads, so run `equity_monitor.py` often (every few minutes) for tighter tracking. A peak that happens between two readings is not seen.
+- **After deploying this update, click Run migration** (admin > Settings, owner only). It adds the new `day_high_equity` column to the Accounts sheet and creates the Starter 1,000 plan (Part 9.2d).
+- Accounts that are already open start tracking the day's high from their next reading.
+
+### 9.2d The Starter 1,000 plan ($7, buy as many as you like)
+
+A second Starter plan (`starter-1000`) sits next to the 500 one:
+- **$1,000 account, $7 fee.** One phase, 10% target, **7% static max drawdown plus the 3.5% trailing daily drawdown** (Part 9.2c; the daily limit is always half of the max), 70% split rising to 80%, minimum payout 5%, payout cap 10%, inactivity 30 days. No pass fee.
+- **Repeat purchases are allowed.** `max_per_user` is left empty, which means no limit. (The 500 plan keeps its one-per-person limit.) Each purchase uses one **1,000-size account from the Account pool**, the same pool the Swift and Apex 1k plans use, so keep it stocked: the low-stock alert threshold is per size (Settings > pool_low_stock_by_size).
+- **No promo codes** (`no_promo` = true). This is required: $7 is below the $10 fee floor, and only no-promo plans may go under it.
+- **Crypto works at $7.** The manual crypto minimum ($10) now never blocks a plan from being paid at its own list price, so crypto-only countries can buy the $7 plan (and the $3 one).
+- Traders see a "Buy as many as you like" tag on the plan card. On the landing page the "From" price still counts only the Swift/Apex plans, with the Starter price shown separately.
+- On a live system the plan is created by **Run migration**. On a brand new sheet it is created by the seed. To change the price or limit later, edit it in **Challenge plans** (set **Max purchases per user** to a number to cap it, leave it empty for unlimited).
+
 ### 9.2b The Starter plan ($3, then $2 after you pass)
 
 The code now includes a **Starter** plan (`starter-500`) in the starting plans:
 - $500 account, **$3 fee**, then **$2 pass fee** when the trader reaches the 10% target (they pay it to unlock the funded account).
-- One phase only (10% target), **10% max drawdown, static**. Daily drawdown is also set to 10% so it is not stricter than the max. Change it in Challenge plans if you want a separate daily rule.
+- One phase only (10% target), **10% max drawdown, static**, plus the daily trailing drawdown (5%, half of the max) described in Part 9.2c.
 - **One purchase per user** (`max_per_user` = 1) and **no promo codes** (`no_promo` = true).
 - You need **500-size accounts in the Account pool** (Part 9.5).
 - The plan form in the admin page (**Challenge plans > New plan / Edit**) now has boxes for **Pass fee (USD)**, **Max purchases per user** and a **Promo codes not allowed** tick box, right after the fee. The plans table also shows these three columns.

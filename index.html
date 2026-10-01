@@ -61,9 +61,9 @@ if(ls(TK)){var s=$("#sign");s.textContent="Dashboard";s.href="app.html#/dash";["
 var r=new URLSearchParams(location.search).get("ref");
 if(r){lset("raven_ref",r.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,20));var v=ls("raven_vid");if(!/^[A-Za-z0-9_-]{8,64}$/.test(v)){v=Array.from(crypto.getRandomValues(new Uint8Array(12)),function(b){return b.toString(36).padStart(2,"0")}).join("");lset("raven_vid",v)}post("aff.track",{code:r,visitor:v}).catch(function(){});history.replaceState(null,"",location.pathname)}
 /* live numbers from the plans, filled in after the page has already painted */
-var one=function(e){return Number(e.phase2_target)===0||e.phase2_target==null},ltd=function(e){return Number(e.max_per_user)>0};
+var one=function(e){return Number(e.phase2_target)===0||e.phase2_target==null},ltd=function(e){return Number(e.max_per_user)>0},stp=function(e){return ltd(e)||String(e.style).toLowerCase()==="starter"};
 function phN(e){var a={};e.forEach(function(t){a[one(t)?1:2]=1});var k=Object.keys(a);return k.length>1?0:Number(k[0])||2}
-function feeInfo(e){var a=e.filter(ltd),t=e.filter(function(o){return!ltd(o)}),m=function(l){return Math.min.apply(null,l.map(function(x){return Number(x.fee_usd)}))};return t.length?{from:m(t),st:a.length&&m(a)<m(t)?m(a):0}:{from:m(e),st:0}}
+function feeInfo(e){var a=e.filter(stp),t=e.filter(function(o){return!stp(o)}),m=function(l){return Math.min.apply(null,l.map(function(x){return Number(x.fee_usd)}))};return t.length?{from:m(t),st:a.length&&m(a)<m(t)?m(a):0}:{from:m(e),st:0}}
 function paint(c){
  var st=$("#state");
  if(c.state==="launching_soon"){st.textContent="Launching soon. Please check back shortly.";st.hidden=false;$("#ctas").hidden=true;$("#cta3").hidden=true}
