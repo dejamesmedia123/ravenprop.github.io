@@ -1,0 +1,17 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex"><title>Verify certificate - Raven Prop</title><link rel="icon" href="favicon.svg">
+<style>:root{--bg:#FFF8F1;--ink:#140E0A;--mut:#6B5A4E;--line:#D9C7B8;--ac:#C2410C;--ok:#15803D;--bad:#B91C1C}@media(prefers-color-scheme:dark){:root{--bg:#0E0A07;--ink:#F5EDE4;--mut:#B8A898;--line:#3A2A1E;--ac:#FF9A3D;--ok:#4ADE80;--bad:#F87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px system-ui,sans-serif;padding:20px;display:grid;place-items:start center;min-height:100vh}main{width:100%;max-width:460px;margin-top:8vh}h1{font-size:22px;margin:0 0 6px}p{color:var(--mut)}
+.row{display:flex;gap:8px;margin:16px 0}input{flex:1;padding:12px;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink);font:inherit}button{padding:12px 16px;border:0;border-radius:8px;background:var(--ac);color:#fff;font-weight:700;cursor:pointer}
+.card{border:1px solid var(--line);border-radius:12px;padding:16px;display:none}.card b{font-size:18px}dl{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;margin:12px 0 0}dt{color:var(--mut)}dd{margin:0}</style></head><body><main>
+<h1>Verify a Raven Prop certificate</h1><p>Enter the certificate ID printed on the certificate.</p>
+<div class="row"><input id="id" placeholder="Certificate ID" maxlength="40" autocomplete="off"><button id="go">Verify</button></div>
+<div class="card" id="out" role="status"></div>
+<p style="font-size:13px">Names are masked for privacy. Simulated accounts only; rewards are not guaranteed.</p></main>
+<script>
+const API="https://script.google.com/macros/s/AKfycbzn1JQuRpODk10tO5P07NPY027_RUA77fujyHOgltTpkpqEOu8RxSxzU3EYibH0fWw9zA/exec",$=s=>document.querySelector(s),E=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+async function go(){const id=$("#id").value.trim(),o=$("#out");if(!id)return;o.style.display="block";o.textContent="Checking...";
+let r;try{r=await(await fetch(API,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({action:"cert.verify",payload:{challenge_id:id}})})).json()}catch{o.innerHTML='<b style="color:var(--bad)">Could not check right now. Try again.</b>';return}
+const d=r&&r.ok&&r.data;if(d&&d.setup===false){o.innerHTML='<b style="color:var(--bad)">Verification is not available yet. Try again later.</b>';return}if(!d||!d.valid){o.innerHTML='<b style="color:var(--bad)">Not found. This certificate could not be verified.</b>';return}
+o.innerHTML='<b style="color:var(--ok)">Valid certificate</b><dl><dt>Type</dt><dd>'+(d.type==="funded"?"Funded trader":(d.passed_phase?d.passed_phase+" passed":"Challenge passed"))+'</dd><dt>Trader</dt><dd>'+E(d.trader||"-")+'</dd><dt>Plan</dt><dd>'+E(d.plan_id)+' - $'+Number(d.account_size_usd||0).toLocaleString()+'</dd><dt>Stage</dt><dd>'+E(d.stage)+'</dd><dt>Account now</dt><dd>'+E(d.status)+'</dd>'+(d.date?'<dt>Date</dt><dd>'+E(d.date)+'</dd>':'')+'</dl>'}
+$("#go").onclick=go;$("#id").onkeydown=e=>{if(e.key==="Enter")go()};const c=new URLSearchParams(location.search).get("c");if(c){$("#id").value=c;go()}
+</script></body></html>
