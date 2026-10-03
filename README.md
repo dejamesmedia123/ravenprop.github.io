@@ -661,3 +661,31 @@ The sign-in and sign-up pages show a **Continue with Google** button once a Goog
 - If a 3-day dark period has ended, the next sign-in asks again.
 - The 3-day timer is stored in the browser (`raven_dark_until`), so it applies per device. `admin.html` is unchanged.
 - The landing page (`index.html`) is also white by default. It reads the same browser setting, so if someone has dark mode switched on (for the 3 days, or by choice in the Me tab) the landing page shows dark too, and returns to white when the 3 days end. The guides pages (`guides/`) are still dark.
+
+## Certificates and the verify page
+
+Three files make up the certificate feature, and they share one stylesheet so they always match the rest of the site:
+
+| File | What it is |
+|---|---|
+| `certificate.html` | "My certificates": a signed-in trader picks a passed phase or funded account, then downloads a PNG, prints or saves a PDF, or copies the verify link. |
+| `verify.html` | The public check. Anyone enters a certificate ID, or scans the QR code on the certificate, to see if it is real. No sign in needed. |
+| `cert.css` | Shared design for both pages. **Upload it with them** or the pages will look unstyled. |
+
+How it behaves:
+
+- **Theme:** both pages read the same saved choice as the rest of the site (`raven_theme`, set by the theme picker or the sun/moon button in the page header). They no longer follow the phone's system setting. The certificate style (White or Dark) starts on the site theme and can be changed on its own.
+- **Where the traders find it:** a "Get my certificate" card on any passed or funded challenge, a "Certificate" tile on the Accounts screen, "My certificates" on the Me screen, and "Verify certificate" in the app footer and home page footer.
+- **Who gets one:** the same rule the public check uses (funded, or in Phase 2, or Phase 1 passed). So every certificate you can download will verify.
+- **Dates:** the date on a certificate is the day the milestone happened, so it never changes when reopened. This needs the updated `Cert.gs` below.
+- **Names:** the certificate uses the name on the trader's profile. The public check only shows initials (for example `A*** O***`).
+
+**To update a live system:**
+1. Replace `Cert.gs` in Apps Script with the new file, then **Deploy > Manage deployments > Edit > New version > Deploy**. The web app link stays the same. No migration is needed.
+2. Upload `certificate.html`, `verify.html`, `cert.css`, `app.html` and `index.html` to GitHub.
+
+Until step 1 is done everything still works, but phase certificates show no date.
+
+## Page loading fix (tabs and "hanging")
+
+`app.html` now only draws the screen for the **latest** tab you tapped. Before, a slow page (usually Home) could finish after you had moved on and replace the screen you were on. Home also asked the server for the same data twice in a row; it now asks once. If a page fails to load, you get a "Try again" button instead of a screen that never finishes, and tapping the tab you are already on reloads it.
