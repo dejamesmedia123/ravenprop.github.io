@@ -75,9 +75,36 @@ var r=new URLSearchParams(location.search).get("ref");
 if(r){lset("raven_ref",r.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,20));var v=ls("raven_vid");if(!/^[A-Za-z0-9_-]{8,64}$/.test(v)){v=Array.from(crypto.getRandomValues(new Uint8Array(12)),function(b){return b.toString(36).padStart(2,"0")}).join("");lset("raven_vid",v)}post("aff.track",{code:r,visitor:v}).catch(function(){});history.replaceState(null,"",location.pathname)}
 /* live numbers from the plans, filled in after the page has already painted */
 var one=function(e){return Number(e.phase2_target)===0||e.phase2_target==null},ltd=function(e){return Number(e.max_per_user)>0},stp=function(e){return ltd(e)||String(e.style).toLowerCase()==="starter"};
-function phN(e){var a={};e.forEach(function(t){a[one(t)?1:2]=1});var k=Object.keys(a);return k.length>1?0:Number(k[0])||2}
-function feeInfo(e){var a=e.filter(stp),t=e.filter(function(o){return!stp(o)}),m=function(l){return Math.min.apply(null,l.map(function(x){return Number(x.fee_usd)}))};return t.length?{from:m(t),st:a.length&&m(a)<m(t)?m(a):0}:{from:m(e),st:0}}
+var inst=function(e){return e.phase1_target!==""&&e.phase1_target!=null&&Number(e.phase1_target)===0};
+function phN(e){var a={};e.filter(function(t){return!inst(t)}).forEach(function(t){a[one(t)?1:2]=1});var k=Object.keys(a);return k.length>1?0:Number(k[0])||2}
+function feeInfo(e){var a=e.filter(stp),t=e.filter(function(o){return!stp(o)&&!inst(o)}),m=function(l){return Math.min.apply(null,l.map(function(x){return Number(x.fee_usd)}))};return t.length?{from:m(t),st:a.length&&m(a)<m(t)?m(a):0}:{from:m(e),st:0}}
+/* RAVEN_PROMO_START: launch price popup. Shows only while a plan has a live sale price, once per page per visit. */
+function ravenPromo(plans,key,href,onGo){
+  try{
+    var now=Date.now(),list=(plans||[]).filter(function(p){var f=Number(p.sale_fee_usd);return p.status!=="inactive"&&f>0&&p.sale_ends_at&&Date.parse(p.sale_ends_at)>now});
+    if(!list.length||document.getElementById("rvpromo"))return;
+    try{if(sessionStorage.getItem("rvpromo_"+key))return;sessionStorage.setItem("rvpromo_"+key,"1")}catch(e){}
+    list.sort(function(a,b){return Number(a.account_size_usd)-Number(b.account_size_usd)});
+    var end=Math.min.apply(null,list.map(function(p){return Date.parse(p.sale_ends_at)})),days=Math.max(0,Math.ceil((end-now)/864e5));
+    var dt=new Date(end).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+    var usd=function(n){n=Number(n);return"$"+(n%1?n.toFixed(2):n.toLocaleString("en-US"))};
+    var left=days<=1?"Last day":days+" days left";
+    var rows=list.slice(0,4).map(function(p){return'<div class="rvp-row"><span class="rvp-sz">'+usd(p.account_size_usd)+'</span><span class="rvp-old">'+usd(p.fee_usd)+'</span><span class="rvp-new">'+usd(p.sale_fee_usd)+'</span></div>'}).join("");
+    var st=document.createElement("style");
+    st.textContent="#rvpromo,#rvpromo *{box-sizing:border-box}#rvpromo{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(20,10,4,.55);font-family:'Liberation Sans',Arial,Helvetica,sans-serif;animation:rvf .25s ease}@keyframes rvf{from{opacity:0}to{opacity:1}}#rvpromo .rvp{position:relative;width:100%;max-width:400px;max-height:96vh;overflow:auto;border-radius:26px;background:radial-gradient(120% 70% at 100% 0,rgba(255,138,31,.28),transparent 60%),#fff;border:2px solid #F2D6BC;box-shadow:0 24px 60px rgba(120,50,0,.35);padding:22px 22px 20px;color:#1A110A;animation:rvu .3s ease}@keyframes rvu{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}#rvpromo .rvp-x{position:absolute;top:10px;right:12px;width:36px;height:36px;border:0;border-radius:50%;background:#FFF3E6;color:#7A685A;font-size:22px;line-height:1;cursor:pointer}#rvpromo .rvp-top{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}#rvpromo .rvp-tag{display:inline-block;margin-top:14px;padding:5px 12px;border-radius:99px;border:1.5px solid #F26200;color:#C2410C;font-weight:700;font-size:12.5px}#rvpromo h2{margin:8px 0 2px;font-size:44px;line-height:1;font-weight:800;letter-spacing:-1.5px;background:linear-gradient(135deg,#FF9A2E,#F26200);-webkit-background-clip:text;background-clip:text;color:transparent}#rvpromo .rvp-sub{margin:0 0 14px;color:#7A685A;font-size:15px}#rvpromo .rvp-tb{border:1.5px solid #F2D6BC;border-radius:18px;background:#fff;overflow:hidden}#rvpromo .rvp-row{display:flex;align-items:baseline;gap:10px;padding:10px 16px;border-top:1px solid #F7E6D6}#rvpromo .rvp-row:first-child{border-top:0}#rvpromo .rvp-sz{flex:1;font-weight:700;font-size:20px}#rvpromo .rvp-old{color:#9a8a7c;text-decoration:line-through;font-size:15px}#rvpromo .rvp-new{min-width:74px;text-align:right;font-weight:800;font-size:24px;color:#F26200}#rvpromo ul{margin:14px 0 0;padding:0;list-style:none;font-size:14px;color:#1A110A}#rvpromo li{padding:3px 0 3px 18px;position:relative}#rvpromo li:before{content:'';position:absolute;left:2px;top:10px;width:8px;height:8px;border-radius:50%;background:#F26200}#rvpromo .rvp-go{display:block;margin-top:16px;padding:14px;border-radius:14px;text-align:center;text-decoration:none;font-weight:800;font-size:17px;color:#140800;background:linear-gradient(135deg,#FFA826,#F26200);border:0;width:100%;cursor:pointer}#rvpromo .rvp-fn{margin:10px 0 0;text-align:center;color:#7A685A;font-size:11.5px;line-height:1.4}";
+    document.head.appendChild(st);
+    var o=document.createElement("div");o.id="rvpromo";o.setAttribute("role","dialog");o.setAttribute("aria-modal","true");o.setAttribute("aria-label","Talon launch price");
+    o.innerHTML='<div class="rvp"><button class="rvp-x" aria-label="Close">&times;</button><div class="rvp-top"><svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="rvg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF9A2E"/><stop offset="1" stop-color="#F26200"/></linearGradient></defs><path d="M4 22 L14 6 L18 12 L28 8 L20 18 L22 26 L12 20 Z" fill="url(#rvg)"/></svg>Raven Prop</div><span class="rvp-tag">Launch price &middot; '+left+' &middot; ends '+dt+'</span><h2>Talon</h2><p class="rvp-sub">Instant funding. No challenge.</p><div class="rvp-tb">'+rows+'</div><ul><li>Funded the moment you pay</li><li>30% max loss, 10% daily loss</li><li>Withdraw up to 20%, first payout on demand</li></ul><a class="rvp-go" href="'+href+'">Get funded now</a><p class="rvp-fn">Price drops automatically at checkout, no code needed. Simulated accounts. Rewards depend on results and are not guaranteed.</p></div>';
+    var close=function(){document.removeEventListener("keydown",esc);o.remove()},esc=function(e){if(e.key==="Escape")close()};
+    o.addEventListener("click",function(e){if(e.target===o||e.target.className==="rvp-x")close();else if(e.target.className==="rvp-go"&&onGo){e.preventDefault();close();onGo()}else if(e.target.className==="rvp-go")close()});
+    document.addEventListener("keydown",esc);document.body.appendChild(o);
+    
+  }catch(e){}
+}
+/* RAVEN_PROMO_END */
+
 function paint(c){
+ try{ravenPromo(c.plans,"landing","app.html#/challenges")}catch(e){}
  var st=$("#state");
  if(c.state==="launching_soon"){st.textContent="Launching soon. Please check back shortly.";st.hidden=false;$("#ctas").hidden=true;$("#cta3").hidden=true}
  else if(c.settings&&c.settings.maintenance_mode){st.textContent="We are doing maintenance. Some actions may be unavailable for a short while.";st.hidden=false}
