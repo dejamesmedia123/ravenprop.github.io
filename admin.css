@@ -11,3 +11,29 @@ html:not([data-theme=light]) .rv-bar,html[data-theme=dark] .rv-bar{background:rg
 @keyframes rv-s{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
 @media (prefers-reduced-motion:reduce){.rv-ld svg,.rv-bar:after{animation:none}}
 .rv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+
+/* ===== Mobile-first admin ===== */
+#modal{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;align-items:flex-start;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom))}
+#modal>div{margin:auto;max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+#modal>div>div.flex.justify-end:last-child{position:sticky;bottom:-20px;padding:12px 0 2px;margin-top:8px;background:rgb(14 10 7)}
+#modal input,#modal select,#modal textarea,#view input,#view select,#view textarea{font-size:16px;max-width:100%}
+#view pre{white-space:pre-wrap;overflow-wrap:anywhere}
+html,body{overflow-x:hidden}
+@media (max-width:640px){
+  .am{padding-left:12px;padding-right:12px}
+  #view h3{font-size:1.05rem}
+  #view button,#modal button{min-height:44px}
+  #view .flex-wrap>button,#view .flex-wrap>a{flex:1 1 140px}
+  #view .flex-wrap>input,#view .flex-wrap>select,#view [class*="w-64"]{width:100%!important;flex:1 1 100%}
+  #view .overflow-x-auto{overflow:visible;background:transparent!important;border:0!important;padding:0!important;border-radius:0}
+  #view table,#view tbody{display:block;width:100%}
+  #view thead{display:none}
+  #view tbody tr{display:block;margin:0 0 10px;padding:4px 14px;border:1px solid rgb(58 36 19);border-radius:16px;background:rgb(14 10 7)}
+  #view tbody td{display:flex!important;justify-content:space-between;align-items:flex-start;gap:14px;padding:8px 0!important;text-align:right;border-bottom:1px solid rgba(58,36,19,.5);overflow-wrap:anywhere}
+  #view tbody td:last-child{border-bottom:0}
+  #view tbody td[data-label]::before{content:attr(data-label);color:rgb(179 165 154);text-transform:capitalize;text-align:left;flex:none;max-width:42%}
+  #view tbody td:not([data-label]){justify-content:flex-end;flex-wrap:wrap;gap:6px 4px}
+  #view tbody td button{padding:0 12px;margin:0}
+  #view textarea{min-height:120px}
+}

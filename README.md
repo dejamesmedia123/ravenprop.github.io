@@ -689,3 +689,71 @@ Until step 1 is done everything still works, but phase certificates show no date
 ## Page loading fix (tabs and "hanging")
 
 `app.html` now only draws the screen for the **latest** tab you tapped. Before, a slow page (usually Home) could finish after you had moved on and replace the screen you were on. Home also asked the server for the same data twice in a row; it now asks once. If a page fails to load, you get a "Try again" button instead of a screen that never finishes, and tapping the tab you are already on reloads it.
+
+---
+
+## Google sign-up and sign-in
+
+The sign-in and sign-up pages show a **Continue with Google** button once a Google Client ID is saved in Settings. With no Client ID the button stays hidden and nothing changes.
+
+**One-time setup (about 10 minutes)**
+
+1. Go to https://console.cloud.google.com and create a project (or pick one), for example `Raven Prop`.
+2. Open **APIs & Services > OAuth consent screen**. Choose **External**, fill in the app name, support email and developer email, then save. Click **Publish app** so any Google user can sign in (not just test users).
+3. Open **APIs & Services > Credentials > Create credentials > OAuth client ID**. Application type: **Web application**.
+4. Under **Authorized JavaScript origins** add `https://ravenprop.cfd` (and `https://www.ravenprop.cfd` if you use it). Leave redirect URIs empty. Click **Create**.
+5. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`). It is not a secret.
+6. Update the back office: paste the new `Code.gs` and `Access.gs` into Apps Script, then **Deploy > Manage deployments > edit > New version > Deploy**.
+7. In `admin.html` open **Settings > Run migration** (this adds the new `google_client_id` setting), then paste the Client ID into **google_client_id** and save.
+8. Upload the new `app.html` to GitHub.
+
+**How it behaves**
+
+- New person: an account is created with their Google email and name. All the normal sign-up rules still apply (sign-ups closed, maintenance, blocked emails, referral codes).
+- Existing person with the same email: they are signed in to their existing account. Google confirms the email is verified before this is allowed.
+- Banned accounts are refused, same as password login.
+- Accounts created with Google start with **no password**. On the Profile page the box shows **Set a password** (no current password asked). After that, they can sign in with Google or email and password, and the box becomes the normal **Change password**. **Forgot password** also works.
+- If someone with a Google-only account tries email and password, they are told to use the Google button or set a password.
+- The admin page (`admin.html`) still uses email and password only.
+
+---
+
+## Add one pool account by hand
+
+In `admin.html` > Account pool there is an **Add one account** form above the CSV box. Fill in the MT5 login, password, investor password, server (blank uses the default for that size) and the size, then tap **Add account**. Size and server stay filled in so you can add the next one quickly. It uses the same checks as the CSV import and the passwords are encrypted the same way.
+
+**Reveal passwords** now opens a dialog with Copy buttons, and shows the real error if something is wrong (for example "Pool passwords are encrypted but POOL_ENC_KEY is not set"). Messages now appear at the top of the screen so the bottom menu cannot hide them.
+
+
+---
+
+## Admin on phones
+
+`admin.html` and `admin.css` were reworked to be phone-first:
+- Tables turn into stacked cards on small screens (each row is one card with labelled lines), so nothing needs sideways scrolling.
+- Pop-up forms (for example **Plans > Edit**, where minimum payout and the other limits live) now scroll inside the screen and keep **Cancel / Confirm** in reach at the bottom.
+- Buttons are at least 44px tall, inputs are 16px so the phone does not zoom in, and the search bar and button rows fill the width.
+
+## Log in as a user (admin troubleshooting)
+
+In `admin.html` > Users > open a trader > **Log in as this user**.
+
+1. Type a short reason. It is saved in the audit log with who did it.
+2. Tap **Open as user**. A new tab opens `app.html` signed in as that trader, with an orange bar at the top: *Viewing as ... admin session* and an **Exit** button.
+3. The one-time link works once and for about 90 seconds. The session lasts **60 minutes** and is kept only in that browser tab (it does not touch your own login).
+
+Rules built in:
+- **Full access.** While you are in, you can do everything the trader can (payments, payouts, KYC, password, tickets), and it counts as done by them. Nothing is blocked. To block some actions again, put their names in `IMP_BLOCKED_` at the top of the new section in `Access.gs`, for example `["payout.request","auth.changePassword"]`.
+- Only **trader** accounts can be opened (not admins or owners), and not banned ones.
+- The reason and the admin who did it are saved in the audit log. The session row in the `Sessions` sheet is tagged with the admin's user id (in `created_at`, after `|imp:`).
+
+To deploy: paste the new `Code.gs` and `Access.gs` into Apps Script and deploy a **new version**. No migration is needed. Then upload `admin.html`, `admin.css` and `app.html`.
+
+
+---
+
+## Affiliate program open to everyone
+
+Every signed-in trader sees **Join the program** on the Affiliate screen. New applications are now approved at once (setting `aff_auto_approve` is on) and the person gets their link straight away.
+
+To apply this to your live system: paste the new `Code.gs` and `Migrate.gs`, deploy a new version, then in `admin.html` go to Settings and tap **Run migration**. It turns auto-approve on and approves every application that is still waiting. Rejected and suspended affiliates are left as they are. To go back to approving by hand, switch `aff_auto_approve` off in Settings (Settings > affiliate).
