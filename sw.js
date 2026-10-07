@@ -2,7 +2,7 @@
    - Images/icons/fonts: cache first (they rarely change).
    - HTML/CSS/JS: network first with a short timeout, saved copy if the network is slow or offline.
    - Never touches the API (script.google.com) or any other site, and never stores tokens or user data. */
-var V="rv-v2",STATIC=V+"-static",PAGES=V+"-pages";
+var V="rv-v3",STATIC=V+"-static",PAGES=V+"-pages";
 var SHELL=["./","index.html","app.html","app.css","app-ui.css","config.js","app.js","ux.js","dashboard.html","login.html","logo.svg","favicon.svg","icon-192.png"];
 self.addEventListener("install",function(e){
   e.waitUntil(caches.open(PAGES).then(function(c){return Promise.all(SHELL.map(function(u){return c.add(u).catch(function(){})}))}).then(function(){return self.skipWaiting()}));
