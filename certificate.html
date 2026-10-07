@@ -966,7 +966,7 @@ module.exports = QRCode;
 M['index']=module.exports;})();
 window.rvQR=function(t){var q=new M.index(-1,M.QRErrorCorrectLevel.M);q.addData(t);q.make();var n=q.getModuleCount(),p="";for(var r=0;r<n;r++)for(var c=0;c<n;c++)if(q.isDark(r,c))p+="M"+c+" "+r+"h1v1h-1z";return{n:n,d:p}}})();</script>
 <script>
-const API="https://script.google.com/macros/s/AKfycbzn1JQuRpODk10tO5P07NPY027_RUA77fujyHOgltTpkpqEOu8RxSxzU3EYibH0fWw9zA/exec",
+const API="https://script.google.com/macros/s/AKfycbzgBlEgaYfiPzIxSfXj_DtuFUBxlNk3Wi_kr0ZoIn-3LwGUea4V1o3LNElnnAf3IdXfGQ/exec",
 VERIFY="https://ravenprop.cfd/verify.html?c=",
 $=s=>document.querySelector(s),E=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const P={light:{bg:"#FFF8F1",ink:"#140E0A",mut:"#6B5A4E",ac:"#C2410C",a2:"#E8B98F",glow:"#FF7A1A",go:.16,wm:.05},
