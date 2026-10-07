@@ -11,3 +11,10 @@ html:not([data-theme=light]) .rv-bar,html[data-theme=dark] .rv-bar{background:rg
 @keyframes rv-s{0%{transform:translateX(-100%)}100%{transform:translateX(250%)}}
 @media (prefers-reduced-motion:reduce){.rv-ld svg,.rv-bar:after{animation:none}}
 .rv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* RV_LATE_START: tab styles that must load after the rules above */
+.tiertabs{border:0!important}
+html .tiertabs .tabb{border-radius:999px!important;box-shadow:none!important;font-weight:700;border:2px solid #FF7A1A!important;transition:background-color .15s,color .15s}
+html[data-theme=light] .tiertabs .tabb{background:#fff!important;color:#C2410C!important}
+html:not([data-theme=light]) .tiertabs .tabb,html[data-theme=dark] .tiertabs .tabb{background:#18110b!important;color:#FF9A3D!important}
+html .tiertabs .tabb.on,html[data-theme=light] .tiertabs .tabb.on,html:not([data-theme=light]) .tiertabs .tabb.on,html[data-theme=dark] .tiertabs .tabb.on{background:#EA580C!important;color:#fff!important;border-color:#EA580C!important;box-shadow:0 0 0 3px rgba(255,122,26,.3)!important}
