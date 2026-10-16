@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Apex Finance – Monthly Hosting Payment</title>
+<style>
+:root{--bg:#fff8f1;--panel:#ffffff;--line:#ffe1c8;--text:#2b1a0e;--mute:#8a6a52;--accent:#ff7a00;--accent2:#ff4d00;--ok:#188a52;--err:#d93025;--field:#fffaf5;
+--grad:linear-gradient(135deg,#ff9a1f 0%,#ff6a00 55%,#ff4d00 100%);--shadow:0 10px 30px rgba(255,106,0,.12)}
+*{box-sizing:border-box}
+body{margin:0;color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px 48px;
+background:var(--bg) url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAPklEQVR42mNgGAWjYBSMglFAKWAkR9P/KgY3uAFtDLtI0ctEiWXY+FS3kFIw+C1EjzNS43AUjIJRMAqGIQAAzh8JCgMDrqUAAAAASUVORK5CYII=") repeat}
+main{max-width:520px;margin:0 auto}
+.hero{position:relative;margin:16px 0 18px;border-radius:20px;overflow:hidden;min-height:170px;color:#fff;box-shadow:var(--shadow);
+background:url("data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 200%22 preserveAspectRatio=%22xMidYMid slice%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23ff8a00%22/%3E%3Cstop offset=%221%22 stop-color=%22%23ff4d00%22/%3E%3C/linearGradient%3E%3ClinearGradient id=%22w%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23fff%22 stop-opacity=%22.35%22/%3E%3Cstop offset=%221%22 stop-color=%22%23fff%22 stop-opacity=%220%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%22800%22 height=%22200%22 fill=%22url(%23g)%22/%3E%3Ccircle cx=%22700%22 cy=%2220%22 r=%22130%22 fill=%22url(%23w)%22/%3E%3Ccircle cx=%2290%22 cy=%22190%22 r=%22110%22 fill=%22url(%23w)%22/%3E%3Cpath d=%22M0 150 C150 100 300 200 450 150 S700 110 800 150 V200 H0Z%22 fill=%22%23fff%22 fill-opacity=%22.18%22/%3E%3C/svg%3E") center/cover,var(--grad)}
+.hero .photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.38;mix-blend-mode:multiply}
+.hero .in{position:relative;padding:22px 20px;display:flex;gap:14px;align-items:center;min-height:170px}
+.hero .badge-img{width:56px;height:56px;flex:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2))}
+.hero h1{margin:0;font-size:1.45rem;line-height:1.2;text-shadow:0 2px 8px rgba(0,0,0,.18)}
+.hero p{margin:4px 0 0;opacity:.95;font-size:.92rem}
+h1{font-size:1.45rem;margin:8px 0 4px}
+p.sub{color:var(--mute);margin:0 0 16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:var(--shadow);position:relative}
+.card::before{content:"";position:absolute;left:18px;right:18px;top:0;height:3px;border-radius:0 0 4px 4px;background:var(--grad)}
+label{display:block;font-size:.85rem;color:var(--mute);margin:12px 0 4px}
+input,select{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--text);font-size:1rem}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{width:100%;margin-top:18px;padding:14px;border:0;border-radius:12px;background:var(--grad);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 6px 16px rgba(255,106,0,.35);transition:transform .15s,box-shadow .15s}
+button:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(255,106,0,.4)}
+button.ghost{background:#fff;color:var(--accent2);border:1px solid var(--accent);margin-top:10px;box-shadow:none}
+button:disabled{opacity:.6;transform:none}
+.preview{position:relative;width:100%;aspect-ratio:16/10;overflow:hidden;border-radius:12px;border:1px solid var(--line);margin:0 0 8px;background:linear-gradient(135deg,#fff1e2,#ffd9b3)}
+.pv{position:absolute;top:0;left:0;width:1280px;height:800px;border:0;transform-origin:0 0;pointer-events:none;background:#fff}
+.visit{display:block;text-align:right;font-size:.85rem;color:var(--accent2);text-decoration:none;font-weight:600;margin:0 0 6px}
+.social{width:100%;border-radius:12px;border:1px solid var(--line);display:block;margin:0 0 14px;background:linear-gradient(135deg,#fff1e2,#ffd9b3);min-height:100px}
+.row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row span:first-child{color:var(--mute)}
+.row b{text-align:right;word-break:break-all}
+.amount{font-size:1.6rem;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.qr{display:flex;justify-content:center;margin:14px 0 6px}
+.qr>div,.qr canvas,.qr img{border-radius:10px}
+.qr>div{background:#fff;padding:10px;border-radius:14px;line-height:0;border:2px solid var(--accent)}
+.wallet{display:flex;gap:8px;align-items:stretch}
+.wallet code{flex:1;word-break:break-all;background:var(--field);border:1px solid var(--line);border-radius:10px;padding:10px;font-size:.85rem}
+.wallet button{width:auto;margin:0;padding:0 14px}
+.note{font-size:.82rem;color:var(--mute);margin-top:8px}
+.err{color:var(--err);font-size:.9rem;margin-top:10px;min-height:1em}
+.hidden{display:none}
+.badge{display:inline-block;padding:4px 12px;border-radius:99px;font-size:.85rem;font-weight:700;margin-bottom:12px}
+.b-wait{background:#fff0dd;color:#c25a00}.b-ok{background:#e3f6ec;color:var(--ok)}.b-no{background:#fdeaea;color:var(--err)}
+.timer{font-size:2rem;font-weight:700;text-align:center;margin:4px 0;font-variant-numeric:tabular-nums;color:var(--accent2)}
+.strip{display:flex;gap:10px;margin:0 0 16px}
+.strip div{flex:1;height:84px;border-radius:14px;overflow:hidden;position:relative;background:linear-gradient(135deg,#ffb347,#ff6a00);box-shadow:var(--shadow)}
+.strip img{width:100%;height:100%;object-fit:cover;display:block}
+.strip span{position:absolute;left:8px;bottom:6px;color:#fff;font-size:.75rem;font-weight:700;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+.strip div::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(255,90,0,.55))}
+.strip span{z-index:1}
+footer{text-align:center;color:var(--mute);font-size:.8rem;margin-top:8px}
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <img class="photo" alt="" src="https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=1000&q=70" onerror="this.style.display='none'">
+    <div class="in">
+      <img class="badge-img" alt="" src="data:image/png;base64,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">
+      <div><h1>Apex Finance</h1><p>Secure monthly hosting payments in USDT</p></div>
+    </div>
+  </header>
+
+  <!-- Step 1: summary -->
+  <section id="v-summary" class="hidden">
+    <h1>Monthly hosting payment</h1>
+    <p class="sub">Hosting for apexfinanceio.vercel.app is paid on the 17th of every month.</p>
+    <div class="strip" aria-hidden="true">
+      <div><img alt="" loading="lazy" src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=400&q=60" onerror="this.style.display='none'"><span>Analytics</span></div>
+      <div><img alt="" loading="lazy" src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=400&q=60" onerror="this.style.display='none'"><span>Reports</span></div>
+    </div>
+    <div class="card">
+      <div class="preview"><iframe class="pv" title="Apex Finance website preview" loading="lazy" tabindex="-1" referrerpolicy="no-referrer"></iframe></div>
+      <a class="visit" target="_blank" rel="noopener">Open website ↗</a>
+      <div class="row"><span>Website</span><b>apexfinanceio.vercel.app</b></div>
+      <div class="row"><span>Service</span><b>Hosting (1 month)</b></div>
+      <div class="row"><span>Due date</span><b id="due1"></b></div>
+      <div class="row"><span>Amount</span><b class="amount" id="amt1"></b></div>
+      <button id="continueBtn">Continue to payment</button>
+    </div>
+  </section>
+
+  <!-- Step 2: wallet + QR -->
+  <section id="v-pay" class="hidden">
+    <h1>Send payment</h1>
+    <p class="sub">Send exactly <b id="amt2"></b> to the wallet below, then confirm.</p>
+    <form id="payForm" class="card" novalidate>
+      <label for="network">Choose network</label>
+      <select id="network">
+        <option value="TRC20">USDT – TRC20 (Tron)</option>
+        <option value="BEP20">USDT – BEP20 (BNB Smart Chain)</option>
+      </select>
+      <div id="qr" class="qr" aria-label="Wallet QR code"></div>
+      <p class="note" style="text-align:center">Scan with your wallet app</p>
+      <label>Wallet address</label>
+      <div class="wallet">
+        <code id="wallet"></code>
+        <button type="button" id="copy" class="ghost">Copy</button>
+      </div>
+      <p class="note" id="netNote"></p>
+
+      <label for="name">Your name</label>
+      <input id="name" autocomplete="name">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email">
+
+      <div class="err" id="err" role="alert"></div>
+      <button type="submit" id="submitBtn">I have paid</button>
+      <button type="button" class="ghost" id="backBtn">Back</button>
+    </form>
+  </section>
+
+  <!-- Step 3: status -->
+  <section id="v-status" class="hidden">
+    <h1 id="stTitle">Payment received</h1>
+    <p class="sub">Order <b id="oid"></b> for <span id="stDue"></span></p>
+    <div class="card">
+      <div class="preview"><iframe class="pv" title="Apex Finance website preview" loading="lazy" tabindex="-1" referrerpolicy="no-referrer"></iframe></div>
+      <a class="visit" target="_blank" rel="noopener">Open website ↗</a>
+      <span id="badge" class="badge b-wait">Waiting for approval</span>
+      <div id="timerWrap">
+        <div class="timer" id="timer">30:00</div>
+        <p class="note" style="text-align:center">Admin approval window. If it passes, the order stays in review until approved.</p>
+      </div>
+      <p id="msg" class="note"></p>
+      <div class="row"><span>Website</span><b>apexfinanceio.vercel.app</b></div>
+      <div class="row"><span>Amount</span><b id="stAmt"></b></div>
+      <div class="row hidden" id="nextRow"><span>Next payment due</span><b id="nextDue"></b></div>
+      <button class="ghost hidden" id="retryBtn">Submit payment again</button>
+    </div>
+  </section>
+  <footer>Photos: Unsplash</footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ======== EDIT THESE ======== */
+const CONFIG = {
+  GAS_URL: "https://script.google.com/macros/s/AKfycbw0nZlZe4niACI6IWksMo3eJRkMfcO9IifoN5_E5v4MBbIbDJUdBZX582AvE999o6jXYA/exec",   // ends with /exec
+  WALLETS: {
+    TRC20: "TSLfcHDDusJDApHnqBvdSQ5ZidZxUwid7Z",
+    BEP20: "0x165dd9fF677B271696c6138563536b8203e1C669"
+  },
+  AMOUNT: 12.756,                                      // USDT per month
+  DUE_DAY: 17,
+  SITE: "apexfinanceio.vercel.app",
+  WAIT_MINUTES: 30
+};
+/* ============================ */
+
+const $ = id => document.getElementById(id);
+const MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+let timerId, pollId, cycle;
+
+const pad = n => String(n).padStart(2,"0");
+const key = d => d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(CONFIG.DUE_DAY);
+const fmt = d => CONFIG.DUE_DAY+" "+MONTHS[d.getMonth()]+" "+d.getFullYear();
+
+// Payment due date = next 17th on or after today
+function dueDate(){
+  const t=new Date(); t.setHours(0,0,0,0);
+  let d=new Date(t.getFullYear(), t.getMonth(), CONFIG.DUE_DAY);
+  if(d<t) d=new Date(t.getFullYear(), t.getMonth()+1, CONFIG.DUE_DAY);
+  return d;
+}
+const nextAfter = d => new Date(d.getFullYear(), d.getMonth()+1, CONFIG.DUE_DAY);
+
+const due = dueDate(); cycle = key(due);
+const amtText = CONFIG.AMOUNT+" USDT";
+["amt1","amt2","stAmt"].forEach(i=>$(i).textContent=amtText);
+$("due1").textContent=fmt(due); $("stDue").textContent=fmt(due);
+const net = () => $("network").value;
+function showWallet(){
+  const addr=CONFIG.WALLETS[net()];
+  $("wallet").textContent=addr;
+  $("qr").innerHTML="";
+  try{ new QRCode($("qr"),{text:addr,width:180,height:180,colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M}); }catch(e){}
+  $("netNote").textContent = net()==="TRC20"
+    ? "Send USDT on the Tron (TRC20) network only. Any other network will lose your funds."
+    : "Send USDT on the BNB Smart Chain (BEP20) network only. Any other network will lose your funds.";
+}
+$("network").addEventListener("change",showWallet); showWallet();
+const SITE_URL="https://"+CONFIG.SITE;
+document.querySelectorAll(".visit").forEach(a=>a.href=SITE_URL);
+document.querySelectorAll(".pv").forEach(f=>f.src=SITE_URL);
+function fitPreviews(){ document.querySelectorAll(".preview").forEach(p=>{ const f=p.firstElementChild, w=p.clientWidth; if(w) f.style.transform="scale("+(w/1280)+")"; }); }
+window.addEventListener("resize",fitPreviews); new MutationObserver(fitPreviews).observe(document.body,{attributes:true,subtree:true,attributeFilter:["class"]}); fitPreviews();
+
+function show(v){ ["summary","pay","status"].forEach(x=>$("v-"+x).classList.toggle("hidden",x!==v)); }
+
+$("continueBtn").onclick=()=>show("pay");
+$("backBtn").onclick=()=>show("summary");
+$("copy").onclick=async()=>{ try{ await navigator.clipboard.writeText(CONFIG.WALLETS[net()]); $("copy").textContent="Copied"; setTimeout(()=>$("copy").textContent="Copy",1500);}catch(e){} };
+$("retryBtn").onclick=()=>{ clearInterval(pollId); clearInterval(timerId); show("pay"); };
+
+$("payForm").addEventListener("submit", async e=>{
+  e.preventDefault(); $("err").textContent="";
+  const name=$("name").value.trim(), email=$("email").value.trim();
+  if(!name||!/^\S+@\S+\.\S+$/.test(email)) return $("err").textContent="Enter your name and a valid email.";
+  const btn=$("submitBtn"); btn.disabled=true; btn.textContent="Submitting…";
+  try{
+    const r=await fetch(CONFIG.GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},
+      body:JSON.stringify({action:"submit",name,email,cycle,site:CONFIG.SITE,amount:CONFIG.AMOUNT,network:net(),wallet:CONFIG.WALLETS[net()],due:fmt(due)})});
+    const d=await r.json();
+    if(!d.ok) throw new Error(d.error||"Could not submit.");
+    await load();
+  }catch(err){ $("err").textContent=err.message; }
+  btn.disabled=false; btn.textContent="I have paid";
+});
+
+async function load(){
+  try{
+    const r=await fetch(CONFIG.GAS_URL+"?action=current&cycle="+cycle);
+    const d=await r.json();
+    if(d.ok && d.found) return render(d);
+  }catch(e){}
+  show("summary");
+}
+
+function render(d){
+  show("status");
+  $("oid").textContent=d.id;
+  const badge=$("badge"), retry=$("retryBtn");
+  clearInterval(pollId); clearInterval(timerId);
+  retry.classList.add("hidden"); $("nextRow").classList.add("hidden");
+  if(d.status==="Approved"){
+    $("stTitle").textContent="Hosting paid";
+    badge.className="badge b-ok"; badge.textContent="Approved";
+    $("timerWrap").classList.add("hidden");
+    $("msg").textContent="Your hosting is active. This page will ask for payment again before the next due date.";
+    $("nextRow").classList.remove("hidden"); $("nextDue").textContent=fmt(nextAfter(due));
+  }else if(d.status==="Rejected"){
+    $("stTitle").textContent="Payment not approved";
+    badge.className="badge b-no"; badge.textContent="Not approved";
+    $("timerWrap").classList.add("hidden");
+    $("msg").textContent="We could not confirm this payment. Submit again after sending the payment, or contact support.";
+    retry.classList.remove("hidden");
+  }else{
+    $("stTitle").textContent="Payment received";
+    badge.className="badge b-wait"; badge.textContent="Waiting for approval";
+    $("timerWrap").classList.remove("hidden"); $("msg").textContent="";
+    startTimer(d.submittedAt);
+    pollId=setInterval(load,15000);
+  }
+}
+
+function startTimer(at){
+  const end=new Date(at).getTime()+CONFIG.WAIT_MINUTES*60000;
+  const tick=()=>{
+    const left=end-Date.now();
+    if(left<=0){ $("timer").textContent="00:00"; $("msg").textContent="Still in admin review. You will get an email once it is approved."; clearInterval(timerId); return; }
+    $("timer").textContent=pad(Math.floor(left/60000))+":"+pad(Math.floor(left%60000/1000));
+  };
+  tick(); timerId=setInterval(tick,1000);
+}
+
+load();
+</script>
+</body>
+</html>

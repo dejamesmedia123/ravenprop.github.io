@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Apex Finance – Payment Admin</title>
+<style>
+:root{--bg:#fff8f1;--panel:#ffffff;--line:#ffe1c8;--text:#2b1a0e;--mute:#8a6a52;--accent:#ff7a00;--accent2:#ff4d00;--ok:#188a52;--err:#d93025;--field:#fffaf5;
+--grad:linear-gradient(135deg,#ff9a1f 0%,#ff6a00 55%,#ff4d00 100%);--shadow:0 10px 30px rgba(255,106,0,.12)}
+*{box-sizing:border-box}
+body{margin:0;color:var(--text);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px 48px;
+background:var(--bg) url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABwAAAAcCAYAAAByDd+UAAAAPklEQVR42mNgGAWjYBSMglFAKWAkR9P/KgY3uAFtDLtI0ctEiWXY+FS3kFIw+C1EjzNS43AUjIJRMAqGIQAAzh8JCgMDrqUAAAAASUVORK5CYII=") repeat}
+main{max-width:640px;margin:0 auto}
+.hero{position:relative;margin:16px 0 18px;border-radius:20px;overflow:hidden;min-height:130px;color:#fff;box-shadow:var(--shadow);
+background:url("data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 800 200%22 preserveAspectRatio=%22xMidYMid slice%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x1=%220%22 y1=%220%22 x2=%221%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23ff8a00%22/%3E%3Cstop offset=%221%22 stop-color=%22%23ff4d00%22/%3E%3C/linearGradient%3E%3ClinearGradient id=%22w%22 x1=%220%22 y1=%220%22 x2=%220%22 y2=%221%22%3E%3Cstop offset=%220%22 stop-color=%22%23fff%22 stop-opacity=%22.35%22/%3E%3Cstop offset=%221%22 stop-color=%22%23fff%22 stop-opacity=%220%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%22800%22 height=%22200%22 fill=%22url(%23g)%22/%3E%3Ccircle cx=%22700%22 cy=%2220%22 r=%22130%22 fill=%22url(%23w)%22/%3E%3Ccircle cx=%2290%22 cy=%22190%22 r=%22110%22 fill=%22url(%23w)%22/%3E%3Cpath d=%22M0 150 C150 100 300 200 450 150 S700 110 800 150 V200 H0Z%22 fill=%22%23fff%22 fill-opacity=%22.18%22/%3E%3C/svg%3E") center/cover,var(--grad)}
+.hero .photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.38;mix-blend-mode:multiply}
+.hero .in{position:relative;padding:20px;display:flex;gap:14px;align-items:center;min-height:130px}
+.hero .badge-img{width:52px;height:52px;flex:none;filter:drop-shadow(0 4px 8px rgba(0,0,0,.2))}
+.hero h2{margin:0;font-size:1.35rem;text-shadow:0 2px 8px rgba(0,0,0,.18)}
+.hero p{margin:2px 0 0;font-size:.9rem;opacity:.95}
+h1{font-size:1.4rem;margin:8px 0 14px}
+input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--field);color:var(--text);font-size:1rem}
+button{padding:12px 16px;border:0;border-radius:10px;background:var(--grad);color:#fff;font-weight:700;font-size:1rem;cursor:pointer;box-shadow:0 5px 14px rgba(255,106,0,.3)}
+button.ghost{background:#fff;color:var(--accent2);border:1px solid var(--accent);box-shadow:none}
+button.ok{background:linear-gradient(135deg,#2bb673,#188a52);color:#fff;box-shadow:none}
+button.no{background:linear-gradient(135deg,#ef5350,#d93025);color:#fff;box-shadow:none}
+button:disabled{opacity:.5}
+input:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:14px;box-shadow:var(--shadow);position:relative}
+.card::before{content:"";position:absolute;left:16px;right:16px;top:0;height:3px;border-radius:0 0 4px 4px;background:var(--grad)}
+.top{display:flex;gap:8px;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap}
+.tabs{display:flex;gap:8px}
+.tabs button{padding:8px 14px}
+.tabs button.on{background:var(--grad);color:#fff}
+.meta{color:var(--mute);font-size:.85rem}
+.row{display:flex;justify-content:space-between;gap:12px;margin:4px 0;font-size:.92rem}
+.row span:first-child{color:var(--mute)}
+.row b{text-align:right;word-break:break-all}
+.badge{display:inline-block;padding:3px 10px;border-radius:99px;font-size:.8rem;font-weight:700}
+.Pending{background:#fff0dd;color:#c25a00}.Approved{background:#e3f6ec;color:var(--ok)}.Rejected{background:#fdeaea;color:var(--err)}
+.actions{display:flex;gap:10px;margin-top:12px}.actions button{flex:1}
+.err{color:var(--err);min-height:1.2em;margin:8px 0}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <img class="photo" alt="" src="https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&w=1000&q=70" onerror="this.style.display='none'">
+    <div class="in">
+      <img class="badge-img" alt="" src="data:image/png;base64,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">
+      <div><h2>Apex Finance</h2><p>Payment admin</p></div>
+    </div>
+  </header>
+
+  <section id="login" class="card">
+    <h1>Admin login</h1>
+    <input id="key" type="password" placeholder="Admin key" autocomplete="current-password">
+    <div class="err" id="loginErr" role="alert"></div>
+    <button id="loginBtn" style="width:100%">Sign in</button>
+  </section>
+
+  <section id="panel" class="hidden">
+    <h1>Hosting payments</h1>
+    <div class="top">
+      <div class="tabs"><button id="tPending" class="on">Pending</button><button id="tAll" class="ghost">All</button></div>
+      <div><button class="ghost" id="refresh">Refresh</button> <button class="ghost" id="logout">Log out</button></div>
+    </div>
+    <div class="err" id="err" role="alert"></div>
+    <div id="list"></div>
+  </section>
+</main>
+
+<script>
+/* ======== EDIT THIS ======== */
+const GAS_URL = "https://script.google.com/macros/s/AKfycbw0nZlZe4niACI6IWksMo3eJRkMfcO9IifoN5_E5v4MBbIbDJUdBZX582AvE999o6jXYA/exec"; // same /exec URL as the payment form
+/* =========================== */
+
+const $ = id => document.getElementById(id);
+let KEY = sessionStorage.getItem("apexAdminKey") || "";
+let orders = [], filter = "Pending", pollId;
+
+async function api(body){
+  const r = await fetch(GAS_URL,{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify({...body,key:KEY})});
+  return r.json();
+}
+const esc = s => String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+async function load(){
+  $("err").textContent="";
+  try{
+    const d = await api({action:"list"});
+    if(!d.ok){ if(/key/i.test(d.error||"")) return logout(); throw new Error(d.error); }
+    orders = d.orders; render();
+  }catch(e){ $("err").textContent="Could not load payments. Check your connection and try again."; }
+}
+
+function render(){
+  const shown = orders.filter(o=>filter==="All"||o.status===filter);
+  $("tPending").className = filter==="Pending"?"on":"ghost"; $("tAll").className = filter==="All"?"on":"ghost";
+  $("list").innerHTML = shown.length ? shown.map(o=>`
+    <div class="card">
+      <div class="row"><b>${esc(o.name)}</b><span class="badge ${esc(o.status)}">${esc(o.status)}</span></div>
+      <div class="meta">${esc(o.email)} · ${new Date(o.at).toLocaleString()}</div>
+      <div class="row"><span>Order</span><b>${esc(o.id)}</b></div>
+      <div class="row"><span>Due</span><b>${esc(o.cycle)}</b></div>
+      <div class="row"><span>Amount</span><b>${esc(o.amount)} USDT (${esc(o.network)})</b></div>
+      <div class="row"><span>Sent to</span><b>${esc((o.wallet||"").slice(0,6))}…${esc((o.wallet||"").slice(-4))}</b></div>
+      ${o.status==="Pending"?`<div class="actions"><button class="ok" data-a="approve" data-id="${esc(o.id)}">Approve</button><button class="no" data-a="reject" data-id="${esc(o.id)}">Reject</button></div>`:""}
+    </div>`).join("") : '<div class="card meta">No '+(filter==="Pending"?"pending ":"")+'payments.</div>';
+}
+
+$("list").addEventListener("click", async e=>{
+  const b=e.target.closest("button[data-a]"); if(!b) return;
+  if(b.dataset.a==="reject" && !confirm("Reject this payment?")) return;
+  b.disabled=true;
+  try{
+    const d=await api({action:b.dataset.a,id:b.dataset.id});
+    if(!d.ok) throw new Error(d.error);
+    await load();
+  }catch(err){ $("err").textContent=err.message||"Action failed."; b.disabled=false; }
+});
+
+function enter(){ $("login").classList.add("hidden"); $("panel").classList.remove("hidden"); load(); clearInterval(pollId); pollId=setInterval(load,30000); }
+function logout(){ sessionStorage.removeItem("apexAdminKey"); KEY=""; clearInterval(pollId); $("panel").classList.add("hidden"); $("login").classList.remove("hidden"); $("loginErr").textContent="Wrong or expired admin key."; }
+
+$("loginBtn").onclick=async()=>{
+  KEY=$("key").value.trim(); $("loginErr").textContent="";
+  if(!KEY) return;
+  $("loginBtn").disabled=true;
+  try{
+    const d=await api({action:"list"});
+    if(!d.ok) throw new Error(d.error||"Wrong admin key.");
+    sessionStorage.setItem("apexAdminKey",KEY); orders=d.orders; enter();
+  }catch(e){ $("loginErr").textContent=e.message; }
+  $("loginBtn").disabled=false;
+};
+$("key").addEventListener("keydown",e=>{ if(e.key==="Enter") $("loginBtn").click(); });
+$("tPending").onclick=()=>{filter="Pending";render();}; $("tAll").onclick=()=>{filter="All";render();};
+$("refresh").onclick=load;
+$("logout").onclick=()=>{ logout(); $("loginErr").textContent=""; };
+
+if(KEY) enter();
+</script>
+</body>
+</html>
